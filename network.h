@@ -40,10 +40,10 @@ struct evil_table_entry{
 };
 
 //requests a lock
-void append_list(struct list_header list, struct packet_info *packet);
+void append_list(struct list_header *list, struct packet_info *packet);
 
 //requests lock - remains in the method until list has an element to remove
-struct packet_info* poll(struct list_header list);
+struct packet_info* poll(struct list_header *list);
 
 //adds port to the list of stuff kept track of (locks entry)
 void add_port(struct port_table_entry *port);
