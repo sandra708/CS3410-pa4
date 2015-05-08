@@ -143,10 +143,12 @@ void __boot() {
 
     // initialize keyboard late, since it isn't really used by anything else
     keyboard_init();
-    network_poll();
+//    network_poll();
     // see which cores are already on
     for (int i = 0; i < 32; i++)
       printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
+
+	//initialize memory for syncronization tests
 
     // turn on all other cores
     set_cpu_enable(0xFFFFFFFF);
@@ -158,21 +160,21 @@ void __boot() {
 
   } else {
     /* remaining cores boot after core 0 turns them on */
-
+	//test_sync(?, ?, ?);
     // nothing to initialize here... 
   }
 
-  printf("Core %d of %d is alive!\n", current_cpu_id(), current_cpu_exists());
+//  printf("Core %d of %d is alive!\n", current_cpu_id(), current_cpu_exists());
 
-  busy_wait(current_cpu_id() * 0.1); // wait a while so messages from different cores don't get so mixed up
-  int size = 64 * 1024 * 4;
-  printf("about to do calloc(%d, 1)\n", size);
-  unsigned int t0  = current_cpu_cycles();
-  calloc(size, 1);
-  unsigned int t1  = current_cpu_cycles();
-  printf("DONE (%u cycles)!\n", t1 - t0);
+//  busy_wait(current_cpu_id() * 0.1); // wait a while so messages from different cores don't get so mixed up
+//  int size = 64 * 1024 * 4;
+//  printf("about to do calloc(%d, 1)\n", size);
+//  unsigned int t0  = current_cpu_cycles();
+//  calloc(size, 1);
+//  unsigned int t1  = current_cpu_cycles();
+//  printf("DONE (%u cycles)!\n", t1 - t0);
 
-  while (1) ;
+  while (1);
 
   for (int i = 1; i < 30; i++) {
     int size = 1 << i;
