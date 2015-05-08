@@ -6,9 +6,6 @@
 
 // Print out all of the current statistics.
 // The 'data' field can be ignored.
-#define HONEYPOT_PRINT      0x301
-
-
 
 volatile struct dev_net *net_dev;
 unsigned short secret_little_endian=0x1034;
@@ -23,14 +20,13 @@ unsigned short del_vulnerable=0x0302;
 
 unsigned short print_stats=0x0103;
 
-unsigned int * vul;
-unsigned int * evil;
-unsigned int * spam;
 
-int list_sizes=20;
-int vul_len=0;
-int spam_len=0;
-int evil_len=0;
+//int list_sizes=20;
+
+struct hashtable evil_hashtable;
+struct hashtable vulnerable_hashtable;
+struct hashtable spam_hashtable;
+
 int total_vul=0;
 int total_evil=0;
 int total_spam=0;
@@ -60,9 +56,9 @@ void network_init(){
 
     	}
 	}
-    vul=calloc(list_sizes,sizeof(unsigned int));
-    evil=calloc(list_sizes,sizeof(unsigned int));
-    spam=calloc(list_sizes,sizeof(unsigned int));
+    hashtable_create(&evil_hashtable);
+    hashtable_create(&vulnerable_hashtable);
+    hashtable_create(&spam_hashtable);
 
 }
 
@@ -94,46 +90,16 @@ int is_command(struct honeypot_command_packet*  packet ){
 
 }
 
-void print_array(unsigned int *arr){
-    int p;
-    for (p=0;p<list_sizes;p++){
-        printf("%d:%d\t",p,arr[p] );
-    }
-    printf("\n");
-
-}
 
 
 /* edits the vulnerable list according to the command field*/
 void edit_vulnerable(unsigned short command, unsigned int data){
     if(command==add_vulnerable){
-        if(vul_len<list_sizes){
-            int p;
-            for(p=0;p<list_sizes;p++){
-                //printf("vul [%d] : %d\n", p, vul[p]);
-                if(vul[p]==0){
-                    vul[p]=data;
-                    vul_len++;
-                    //printf("vulnerable add\n");
-                    //print_array(vul);
-                    return;
-                }
-            }
-        }
-
-        else;
-            //printf("vulnerable list full\n");
+        hashtable_put(&vulnerable_hashtable,data,data);
     }
     else if(command==del_vulnerable){
-        int p;
-        for(p=0;p<list_sizes;p++){
-            if(vul[p]==data){
-                vul[p]=0;
-                vul_len--;
-                printf("vulnerable delete\n");
-                return;
-            }
-        }
+        if(hashtable_remove(&vulnerable_hashtable,data))
+            total_vul--;
     }
 
 }
@@ -141,67 +107,23 @@ void edit_vulnerable(unsigned short command, unsigned int data){
 /* edits the spammer list according to the command field*/
 void edit_spammer(unsigned short command, unsigned int data){
     if(command==add_spammer){
-        if(spam_len<list_sizes){
-            int p;
-            for(p=0;p<list_sizes;p++){
-                //printf("spam [%d] : %d\n", p, spam[p]);
-                if(spam[p]==0){
-                    spam[p]=data;
-                    spam_len++;
-                    //printf("spam add\n");
-                    //return;
-                }
-            }
-        }
-
-        else;
-            //printf("spam list full\n");
+        hashtable_put(&spam_hashtable,data,data);
     }
     else if(command==del_spammer){
-        int p;
-        for(p=0;p<list_sizes;p++){
-            if(spam[p]==data){
-                spam[p]=0;
-                spam_len--;
-                printf("spam delete\n");
-               // print_array(spam);
-                return;
-            }
-        }
+        if(hashtable_remove(&spam_hashtable,data))
+            total_spam--;
     }
 }
 
 /* edits the evil list according to the command field*/
 void edit_evil(unsigned short command, unsigned int data){
     if(command==add_evil_m){
-        if(evil_len<list_sizes){
-            int p;
-            for(p=0;p<list_sizes;p++){
-                //printf("evil [%d] : %d\n", p, evil[p]);
-                if(evil[p]==0){
-                    evil[p]=data;
-                    evil_len++;
-                   // printf("evil add\n");
-                    //print_array(evil);
-                    return;
-                }
-            }
-        }
-
-        else;
-            //printf("evil list full\n");
+        hashtable_put(&evil_hashtable,data,data);
+        total_evil++;
     }
     else if(command==del_evil){
-        int p;
-        for(p=0;p<list_sizes;p++){
-            if(evil[p]==data){
-                evil[p]=0;
-                evil_len--;
-                printf("evil delete\n");
-                //print_array(evil);
-                return;
-            }
-        }
+        if(hashtable_remove(&evil_hashtable,data))
+            total_evil--;
     }
 }
 
@@ -228,44 +150,37 @@ unsigned long djb2(unsigned char *pkt, int n)
 
 
 void check_packet(struct honeypot_command_packet * packet){
-    int p;
-    //unsigned int src_addr=packet->headers.ip_source_address_big_endian;
-    //unsigned int des_addr=packet->headers.udp_dest_port_big_endian;
+    unsigned int src_addr=packet->headers.ip_source_address_big_endian;
+    unsigned int des_addr=packet->headers.udp_dest_port_big_endian;
     unsigned int hash =djb2((void *)packet , DMA_SIZE);
 
     /*printf("src=%d des=%d hash=%d \n", src_addr,des_addr,hash);
     printf("spam   ");
     print_array(spam);
     printf("vul   ");
-    print_array(vul);*/
+    print_array(vul);
     printf("hash %d\n",hash );
     printf("evil   ");
-    print_array(evil);
+    print_array(evil);*/
 
-    for(p=0;p<list_sizes;p++){
-        /*if(src_addr==spam[p]){
-            total_spam++;
-            printf("updated stats spam=%d \n",total_spam);
-            printf("src %d\n",src_addr );
-            print_array(spam);
-
+    if(src_addr==hashtable_get(&spam_hashtable,src_addr)){
+        total_spam++;
+        printf("updated stats spam=%d \n",total_spam);
+        printf("src %d\n",src_addr );
+        hashtable_print(&spam_hashtable);
         }
-        if(des_addr==vul[p]){
-            total_vul++;
-            printf("updated stats vul=%d \n",total_vul);
-           printf("des %d\n",des_addr );
-            print_array(vul);
-        }*/
-        if(hash==evil[p]){
-            total_evil++;
-            printf("updated stats evil=%d \n",total_evil);
-           printf("hash %d\n",hash );
-            print_array(evil);
-        }
+    if(des_addr==hashtable_get(&vulnerable_hashtable,des_addr)){
+        total_vul++;
+        printf("updated stats vul=%d \n",total_vul);
+        printf("des %d\n",des_addr );
+        hashtable_print(&vulnerable_hashtable);
     }
-    
-
-
+    if(hash==hashtable_get(&evil_hashtable,hash)){
+        total_evil++;
+        printf("updated stats evil=%d \n",total_evil);
+        printf("hash %d\n",hash );
+        hashtable_print(&evil_hashtable);
+    }
 
 }
 
@@ -276,17 +191,17 @@ void execute_command(struct honeypot_command_packet * packet){
     if(command==print_stats){
         printf("printing stats vul=%d spam=%d evil=%d \n",total_vul,total_spam,total_evil);
     }
-/*
+
     else if(command>0x0300){
         edit_vulnerable(command, data);
-    }*/
+    }
     else if(command==add_evil_m || command==del_evil){
         edit_evil(command,data);
 
-    }/*
+    }
     else if(command>0x0100){
         edit_spammer(command,data);
-    }*/
+    }
     check_packet(packet);
     
 }
