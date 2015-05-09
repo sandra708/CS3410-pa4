@@ -180,11 +180,9 @@ test_sync(tester, test_arr + current_cpu_id() * 8, 8);
   while (1) {
     printf("Core %d is still running...\n", current_cpu_id());
     busy_wait(4.0); // wait 4 seconds
-=======
     set_cpu_enable(0xFFFFFFFF);
     network_start_receive();
     network_poll();
->>>>>>> c4d3ea36fbb68f7159815ea9be0ad8402b3eb143
   }
 
   shutdown();
