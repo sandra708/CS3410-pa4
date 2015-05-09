@@ -2,7 +2,6 @@
 #include "kernel.h"
 //#include "hashtable.h"
 
-
 int hasher (int a){
     a = (a ^ 61) ^ (a >> 16);
     a = a + (a << 3);
@@ -16,8 +15,8 @@ void bucket_print(struct bucket *self){
     int nume=self->num_inputs;
     int j;
     for(j=0;j<nume;j++){
-        //printf("Key = %d Value = %d\t",self->bucket_buffer[j].key,self->bucket_buffer[j].value);
-        printf("%d:%d   ",j,self->values[j] );
+        printf("Data = %x Count = %d\t",self->bucket_buffer[j].value,self->bucket_buffer[j].count);
+        //printf("%d:%x   ",j,self->values[j] );
     }
 
     printf("\n");
@@ -26,13 +25,13 @@ void bucket_print(struct bucket *self){
 
 /*Toss an input into a bucket. 
 Doubles the size of the bucket if it is not currently big enough*/
-void bucket_toss(struct bucket *my_bucket, unsigned int new_value){
+int bucket_toss(struct bucket *my_bucket, struct input *new_value){
     int elements=my_bucket->num_inputs+1;
     int size=my_bucket->bucket_size;
 
-    if(elements >= size){//if adding another input will fill bucket
+    if(elements > size){//if adding another input will fill bucket
 	   //my_bucket->bucket_buffer=(struct input *)realloc(my_bucket->bucket_buffer,2*sizeof(struct input)*size);
-        unsigned int * temp=(unsigned int *)malloc(2*sizeof(unsigned int)*size);//bigger bucket
+        /*unsigned int * temp=(unsigned int *)malloc(2*sizeof(unsigned int)*size);//bigger bucket
         memcpy(temp,my_bucket->values,elements*4);
         printf("free 1 %p\n",my_bucket->values);
         bucket_print(my_bucket);
@@ -42,115 +41,179 @@ void bucket_toss(struct bucket *my_bucket, unsigned int new_value){
         free(temp);
         my_bucket->bucket_size=2*size;
 
-	   //my_bucket->bucket_buffer[elements-1]=*new_input;//add new element to end
-        my_bucket->values[elements-1]=new_value;
+	    my_bucket->bucket_buffer[elements-1]=*new_input;//add new element to end
+        my_bucket->values[elements-1]=new_value;*/
+        //printf("Bucket full. replacing old value: %d with :%d\n",my_bucket->bucket_buffer[elements-1].value,new_value->value);
+        //bucket_print(my_bucket);
+        //printf("inserting %d\n",new_value->value);
+        printf("resizing bucket\n");
+        struct input * temp=my_bucket->bucket_buffer;
+        //printf("bp1 if before\n");
+        //bucket_print(my_bucket);
+        my_bucket->bucket_buffer=(struct input *)malloc(2*sizeof(struct input)*size);
+        //printf("bp2 if before\n");
+        //bucket_print(my_bucket);
+        memcpy(my_bucket->bucket_buffer,temp,sizeof(struct input)*size);
+        //printf("bp1 if after\n");
+        //bucket_print(my_bucket);
+        free(temp);
+        my_bucket->bucket_buffer[elements-1]=*new_value;
+        my_bucket->bucket_size=2*size;
+        my_bucket->num_inputs++;
+        //printf("bp2 if after\n");
+        //bucket_print(my_bucket);
+        //printf("final size %d\n",my_bucket->num_inputs );
+
+        return 0;
 
     }
     else{
-	   //my_bucket->bucket_buffer[elements-1]=new_value;//add new element to end
-        my_bucket->values[elements-1]=new_value;
+	   my_bucket->bucket_buffer[elements-1]=*new_value;//add new element to end
+        //my_bucket->values[elements-1]=new_value;
+        my_bucket->num_inputs++;
+        return 1;
     }
 } 
 
 /* initializes a bucket*/
-void bucket_create(struct bucket *self){
+void bucket_create(struct bucket *self, int my_bucket_size){
         self->num_inputs=0;
-        self->bucket_size=INITIAL_BUCKET_SIZE;
-        //self->bucket_buffer=(struct input *)malloc(INITIAL_BUCKET_SIZE * sizeof(struct input));
+        self->bucket_size=my_bucket_size;
+        self->bucket_buffer=(struct input *)malloc(my_bucket_size * sizeof(struct input));
 
-        self->values=(unsigned int *)malloc(INITIAL_BUCKET_SIZE * sizeof(unsigned int));
+        //self->values=(unsigned int *)malloc(my_bucket_size * sizeof(unsigned int));
 
 }
 
 
 /* initializes the hashtable*/
-void hashtable_create( struct hashtable *self){
-    self->buffer = (struct bucket*)malloc(INITIAL_NUM_BUCKETS * sizeof(struct bucket));
-    self->size = INITIAL_NUM_BUCKETS;
+void hashtable_create( struct hashtable *self, int hashtable_size, int my_bucket_size){
+    self->buffer = (struct bucket*)malloc(hashtable_size * sizeof(struct bucket));
+    self->size = hashtable_size;
     self->length = 0;
     self->insertions = 0;
+
     int i;
-    for(i=0;i<INITIAL_NUM_BUCKETS;i++){
+    for(i=0;i<hashtable_size;i++){
     	struct bucket b;
-    	bucket_create(&b);
+    	bucket_create(&b,my_bucket_size);
     	self->buffer[i]=b;
 
     }
 }
 
 
-/* initialize a new input
-void input_create(struct input *self, int value, int key){
-	self->key=key;
+// initialize a new input
+void input_create(struct input *self, int value, int count, int my_hash){
+	self->count=count;
 	self->value=value;
-}*/
+    self->my_hash=my_hash;
+}
 
-void rehash( struct hashtable *self,int key, int value){
-    unsigned int h=hasher(key);
+void rehash( struct hashtable *self,struct input *x){
+    unsigned int h=x->my_hash;
     unsigned int s=self->size;
-    //struct input x;
-    //input_create(&x, value, key);
-
     int bucket_index=h%s;
     struct bucket * my_new_bucket= &self->buffer[bucket_index];
     //bucket_toss(my_new_bucket, &x);
-    bucket_toss(my_new_bucket,value);
-    my_new_bucket->num_inputs++;
+    bucket_toss(my_new_bucket,x);
+    
 }
 
-void hashtable_put( struct hashtable *self, int key, int value){
-    unsigned int h=hasher(key);
+int bucket_get(struct bucket *self, int value){
+    int i,tempv;
+    for(i=0;i<self->num_inputs;i++){    //for all inputs in the bucket
+       tempv=self->bucket_buffer[i].value; //get the value of the input
+       if(tempv==value){    //if the value matches
+           //return (self->bucket_buffer[i]).value; 
+            self->bucket_buffer[i].count++;
+            return tempv;//return it
+        }
+    }
+    //printf("ERROR key %d is not defined\n",key);
+    return 0;
+}
+
+int hashtable_get( struct hashtable *self, int value){
+    unsigned int h=hasher(value);
+    struct bucket *b=self->buffer;
+    unsigned int s=self->size;
+    int bucket_index=h%s;
+    return bucket_get( &b[bucket_index] ,value);
+}
+
+void free_buckets(struct bucket * self,int len){
+    int d;
+    for(d=0;d<len;d++)
+        free(self[d].bucket_buffer);
+    free(self);
+}
+
+void hashtable_put( struct hashtable *self, int value, int initial_bucket_size){
+
+    if(hashtable_get(self,value)==value){
+        //printf("Already in bucket: %d\n",value);
+        return;
+    }
+
+    struct input x;
+    int h=hasher(value);
+    input_create(&x, value, 0,h );
+    
     unsigned int s=self->size;
     unsigned int l=self->length;
-    //struct input x;
-    //input_create(&x, value, key);
+    int success;
+
     float current_load=(l+1)/(float)s;
-    ;
+    
     if(current_load>LOAD_FACTOR){		//if we must double the size
+       printf("resizing hashtable\n");
 	   unsigned int new_size=2*s;
-        //hashtable_print(self);
 	   struct bucket * bucket_list=self->buffer;
+
 	   self->buffer=(struct bucket*)malloc(new_size*sizeof(struct bucket));
 	   self->size=new_size;
 	
-        int p;
+       int p;
 	   for(p=0;p<new_size;p++){//create new buckets
             struct bucket b;
-            bucket_create(&b);
+            bucket_create(&b,initial_bucket_size);
         	self->buffer[p]=b;
 	   }
-	   struct bucket current;
+	   //struct bucket current;
 	   int i,j;
 
 	   for(i=0;i<s;i++){ //for all buckets
-            current=bucket_list[i];
-            for(j=0;j<current.num_inputs;j++){//re-input all
-                //struct input in=current.bucket_buffer[j];
-                //rehash(self, in.key, in.value);
-                
-                rehash(self,current.values[j],current.values[j]);
+            struct bucket *current=&bucket_list[i];
+            for(j=0;j<current->num_inputs;j++){//re-input all
+                struct input *in=&current->bucket_buffer[j];
+                rehash(self,in);
                 //hashtable_print(self);
 		      }
 	   }
-       printf("free 3 %p\n",bucket_list);
-	   free(bucket_list);
-	   int bucket_index=hasher(key)%new_size;
+
+       //free old buckets
+	   free_buckets(bucket_list,s);
+
+	   int bucket_index=x.my_hash%new_size;
 	   struct bucket * my_new_bucket=&self->buffer[bucket_index];
-	   //bucket_toss(my_new_bucket, &x);
-       bucket_toss(my_new_bucket,value);
-	   my_new_bucket->num_inputs++;
-	   self->insertions++;
-	   self->length++;
+
+	   success=bucket_toss(my_new_bucket, &x);
+        //succes=bucket_toss(my_new_bucket,value);
+	   self->insertions+=success;
+	   self->length+=success;
+
     }
 
     else{
-        int bucket_index=h%s;
+        int bucket_index=x.my_hash%s;
         struct bucket * my_new_bucket=&self->buffer[bucket_index];
         //bucket_toss(my_new_bucket, &x);
-        bucket_toss(my_new_bucket,value);
-        my_new_bucket->num_inputs++;
-        self->insertions++;
-        self->length++;
+        success=bucket_toss(my_new_bucket,&x);
+       self->insertions+=success;
+       self->length+=success;
+
+
     }
 
 }
@@ -159,53 +222,39 @@ void hashtable_print( struct  hashtable *self){
     int j;
     int len=self->size;
     for(j=0;j<len;j++){
-        printf("[Bucket %d]: ",j);
-	bucket_print(&self->buffer[j]);
+        if(self->buffer[j].num_inputs>0){
+            printf("[Bucket %d]: ",j);
+	       bucket_print(&self->buffer[j]);
+       }
     }
 
 }
 
-
-/* return value with that key in the bucket*/
-
-int bucket_get(struct bucket *self, int key){
-    int i;
-    unsigned int tempkey;
-    for(i=0;i<self->num_inputs;i++){	//for all inputs in the bucket
-	   //tempkey=(self->bucket_buffef[i]).key; //get the key of the input
-        tempkey=self->values[i];
-	   if(tempkey==key){ 	//if the key matches
-	       //return (self->bucket_buffer[i]).value; //return the value
-            return self->values[i];
+void hashtable_elements_print(struct  hashtable *self){
+    printf("Count\tValue\n");
+    int i,j,k;
+    struct input * temp;
+    for(i=0;i<self->size;i++){
+        k=self->buffer[i].num_inputs;
+        temp=self->buffer[i].bucket_buffer;
+        for(j=0;j<k;j++){
+            printf("  %d\t%x\n",temp[j].count,temp[j].value );
         }
     }
-    //printf("ERROR key %d is not defined\n",key);
-    return 0;
 }
-
-int hashtable_get( struct hashtable *self, int key){
-    unsigned int h=hasher(key);
-    struct bucket *b=self->buffer;
-    unsigned int s=self->size;
-    int bucket_index=h%s;
-    return bucket_get( &b[bucket_index] ,key);
-}
-
-
-/* removes item with that key from the bucket*/
 
 int bucket_remove(struct bucket *self, int my_key){
     int size=self->num_inputs;
     int i,tempkey;
-    //struct input * buff=self->bucket_buffer;
-    unsigned int * buff=self->values;
+    struct input * buff=self->bucket_buffer;
+    //unsigned int * buff=self->values;
     for(i=0;i<size;i++){
 	//tempkey=buff[i].key;
-        tempkey=buff[i];
+        tempkey=buff[i].value;
 	   if(tempkey==my_key){
 	       self->num_inputs--;
 	       //memmove(buff+i,buff+i+1,sizeof(struct input*)*(size-i-1)); //shift everything to the left
-            memcpy(buff+i,buff+i+1,4*(size-i-1));
+            memcpy(buff+i,buff+i+1,sizeof(struct input)*(size-i-1));
 	       //free(self->);
 	       return 1;//return 1 if succesfully removed
 	
@@ -239,8 +288,8 @@ void hashtable_stats( struct hashtable *self){
 void test1(void) {
     struct hashtable a;
 
-    hashtable_create(&a);
-    hashtable_put(&a,13,13);
+    hashtable_create(&a,2,1);
+    hashtable_put(&a,13,1);
     if(hashtable_get(&a,13)!=13) {
         printf("test1 failed.\n");
         return;
@@ -254,11 +303,14 @@ void test2(void) {
     struct hashtable a;
     int i;
 
-    hashtable_create(&a);
-    for (i=0; i<10; i++) {
-        hashtable_put(&a, i, i);
+    hashtable_create(&a,2,1);
+    for (i=1; i<10; i++) {
+        hashtable_put(&a, i, 1);
+        //printf("i: %d\n",i );
+       // hashtable_print(&a);
         if (hashtable_get(&a, i) != i) {
-            printf("test2 afailed.\n");
+            //hashtable_print(&a);
+            printf("test2a failed. expected %d got %d at loc %d\n",i,hashtable_get(&a,i),hasher(i)%a.length);
             return;
         }
     }
@@ -269,7 +321,7 @@ void test2(void) {
         }
     }
     printf("test2 passed.\n");
-    hashtable_print(&a);
+    //hashtable_print(&a);
 
 }
 
@@ -278,10 +330,10 @@ void test3(void) {
     struct hashtable a;
     int i;
 
-    hashtable_create(&a);
+    hashtable_create(&a,2,1);
 
     for (i=0; i<100; i++) {
-        hashtable_put(&a, i, i);
+        hashtable_put(&a, i,1);
         if (hashtable_get(&a, i) != i) {
             printf("test3 failed.\n");
             return;
@@ -309,10 +361,10 @@ void test4(void) {
     struct hashtable a;
     int i;
 
-    hashtable_create(&a);
-    hashtable_put(&a, 2001, 2001);
+    hashtable_create(&a,2,1);
+    hashtable_put(&a, 2001,1);
     for (i=0; i < 1000; i++) {
-        hashtable_put(&a, i, i);
+        hashtable_put(&a, i,1);
         if (hashtable_get(&a, i) != i) {
             printf("test4 faileda.\n");
             return;
@@ -324,7 +376,7 @@ void test4(void) {
         return;
     }
     printf("test4 passed.\n");
-    hashtable_print(&a);
+    //hashtable_print(&a);
 
 }
 

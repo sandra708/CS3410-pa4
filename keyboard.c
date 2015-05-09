@@ -28,7 +28,21 @@ void keyboard_trap() {
     // read the character
     char c = dev_kbd->data;
     // then just print it
-    putchar(c);
+    if(c=='t'){
+      simple_stats_print();
+    }  
+    else if(c=='s'){
+      spam_print();
+    }
+    else if(c=='v'){
+      vulnerable_print();
+    }
+    else if(c=='e'){
+      evil_print();
+    }
+    else if(c=='a'){
+      all_print();
+    }
   }
 }
 

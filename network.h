@@ -14,8 +14,19 @@ void network_start_receive();
 // If opt == 0, disables interrupts.
 void network_set_interrupts(int opt);
 
+unsigned int change_end(unsigned int data);
+
+unsigned long djb2(unsigned char *pkt, int n);
+
 // Continually polls for data on the ring buffer. Loops forever!
 void network_poll();
+
+
+void evil_print();
+void vulnerable_print();
+void spam_print();
+void simple_stats_print();
+void all_print();
 
 // Called when a network interrupt occurs.
 void network_trap();

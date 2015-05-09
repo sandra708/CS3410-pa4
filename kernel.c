@@ -1,5 +1,4 @@
 #include "kernel.h"
-
 struct bootparams *bootparams;
 
 int debug = 1; // change to 0 to stop seeing so many messages
@@ -124,28 +123,15 @@ void trap_handler(struct mips_core_data *state, unsigned int status, unsigned in
 void __boot() {
 
   if (current_cpu_id() == 0) {
-    /* core 0 boots first, and does all of the initialization */
-
-    // boot parameters are on physical page 0
     bootparams = physical_to_virtual(0x00000000);
-
-    // initialize console early, so output works
     console_init();
-
-    // output should now work
     printf("Welcome to my kernel!\n");
     printf("Running on a %d-way multi-core machine\n", current_cpu_exists());
-
-    // initialize memory allocators
     mem_init();
-
     network_init();
-    network_start_receive();
-    // prepare to handle interrupts, exceptions, etc.
     trap_init();
-
-    // initialize keyboard late, since it isn't really used by anything else
     keyboard_init();
+
 //    network_poll();
     // see which cores are already on
     for (int i = 0; i < 32; i++)
@@ -194,6 +180,11 @@ test_sync(tester, test_arr + current_cpu_id() * 8, 8);
   while (1) {
     printf("Core %d is still running...\n", current_cpu_id());
     busy_wait(4.0); // wait 4 seconds
+=======
+    set_cpu_enable(0xFFFFFFFF);
+    network_start_receive();
+    network_poll();
+>>>>>>> c4d3ea36fbb68f7159815ea9be0ad8402b3eb143
   }
 
   shutdown();
