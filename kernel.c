@@ -120,84 +120,18 @@ void trap_handler(struct mips_core_data *state, unsigned int status, unsigned in
 void __boot() {
 
   if (current_cpu_id() == 0) {
-    /* core 0 boots first, and does all of the initialization */
-
-    // boot parameters are on physical page 0
     bootparams = physical_to_virtual(0x00000000);
-
-    // initialize console early, so output works
     console_init();
-
-    // output should now work
     printf("Welcome to my kernel!\n");
     printf("Running on a %d-way multi-core machine\n", current_cpu_exists());
-
-    // initialize memory allocators
     mem_init();
-
     network_init();
-    // prepare to handle interrupts, exceptions, etc.
     trap_init();
-
-    // initialize keyboard late, since it isn't really used by anything else
     keyboard_init();
-     //see which cores are already on
-    /*for (int i = 0; i < 2; i++)
-      printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
-     //turn on all other cores*/
     set_cpu_enable(0xFFFFFFFF);
-
-     //see which cores got turned on
-    /*busy_wait(0.1);
-    for (int i = 0; i < 2; i++)
-      printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
-    
-  busy_wait(0.1);
-    for (int i = 0; i < 2; i++)
-      printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");*/
-    //test1();
-    //test2();
-    //test3();
-    //test4();
-      //unsigned int test=0x12345678;
-    //printf("orig %x aft %x\n",test,change_end(test) );
-      network_start_receive();
-      network_poll();
-      /*char* t1="deadbeef123456781111";
-      char* t2="111187654321feebdaed";
-      printf("t1 %s LI:%lx BI:%lx\n", t1,djb2((unsigned char *)t1,20) ,djb2_li((unsigned char *)t1,20));
-    printf("t2 %s LI:%lx BI:%lx\n", t2, djb2((unsigned char *)t2,20),djb2_li((unsigned char *)t2,20));*/
-  } 
-
-  if(current_cpu_id()==1){
-    //network_poll();
-
+    network_start_receive();
+    network_poll();
   }
-
-  //printf("Core %d of %d is alive!\n", current_cpu_id(), current_cpu_exists());
-
-  //busy_wait(current_cpu_id() * 0.1); // wait a while so messages from different cores don't get so mixed up
-  //int size = 64 * 1024 * 4;
-  //printf("about to do calloc(%d, 1)\n", size);
-  //unsigned int t0  = current_cpu_cycles();
-  //calloc(size, 1);
-  //unsigned int t1  = current_cpu_cycles();
-  //printf("DONE (%u cycles)!\n", t1 - t0);
-
-  while (1) ;
-
-  //for (int i = 1; i < 30; i++) {
-  //  int size = 1 << i;
-  //  printf("about to do calloc(%d, 1)\n", size);
-  //  calloc(size, 1);
-  //}
-
-
-
-  //while (1) {
-  //  printf("Core %d is still running...\n", current_cpu_id());
-  //  busy_wait(4.0); // wait 4 seconds
-  //}
 
   shutdown();
 }
