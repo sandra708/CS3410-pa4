@@ -236,19 +236,15 @@ void network_trap();
 
 
 
-inline void spin_lock(int* m){
-    register int *lockaddr asm("t0") = m;
-    register int cond asm("t1");
-    asm __volatile__ (
-        ".set mips2"
-        "try:"
-        "ll $t1, 0($t0)"
-        "bne $t1, $0, try"
-        "addiu $t1, $0, 1"
-        "sc $t1, 0($t0)"
-        "bne $t1, $0, try"
-                      );
-    printf_m("Core %d acquired lock.\n", current_cpu_id());
+void spin_lock(int* m){
+        asm(".set mips2");
+        asm("try:");
+        asm("ll $8, 0($4)");
+        asm("bne $8, $0, try");
+        asm("addiu $8, $0, 1");
+        asm("sc $8, 0($4)");
+        asm("bne $8, $0, try");
+    printf("Core %d acquired lock.\n", current_cpu_id());
 }
 
 inline void unlock(int* m){
@@ -263,8 +259,8 @@ void append_list(struct list_header *list, struct packet_info *packet){
     //(list->tail)->next = packet;
     list->tail = packet;
     (list->length)++;
-    printf_m("Core %d added packet at %d.\n", current_cpu_id(), packet);
-    printf_m("After appending, list is %d elements long.\n", list->length);
+    printf("Core %d added packet at %d.\n", current_cpu_id(), (int)packet);
+    printf("After appending, list is %d elements long.\n", list->length);
     
     unlock(&(list->lock));
 }
@@ -275,7 +271,7 @@ struct packet_info* poll(struct list_header *list){
         spin_lock(&(list->lock));
         if(list->length) break; //list is non-empty
         unlock(&(list->lock));
-        printf_m("List empty: waiting for an element to remove.\n");
+        printf("List empty: waiting for an element to remove.\n");
         busy_wait_cycles(0x00001000); //random value - apply testing
     }
     
@@ -283,8 +279,8 @@ struct packet_info* poll(struct list_header *list){
     //struct packet_info* next = poll->next;
     //list->head = next;
     (list->length)--;
-    printf_m("Core %d removed packet at %d.\n", current_cpu_id(), poll);
-    printf_m("After polling, list is %d elements long.\n", list->length);    
+    printf("Core %d removed packet at %d.\n", current_cpu_id(), (int)poll);
+    printf("After polling, list is %d elements long.\n", list->length);    
 
     unlock(&(list->lock));
     
@@ -297,7 +293,7 @@ void test_sync(struct list_header *list, struct packet_info *arr, int size){
         
         poll(list);
     }
-    printf_m("Core %d has added all of its packets.\n", current_cpu_id());
+    printf("Core %d has added all of its packets.\n", current_cpu_id());
 }
 
 //adds port to the list of stuff kept track of (locks entry)
