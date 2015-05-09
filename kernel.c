@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include "network.h"
 struct bootparams *bootparams;
 
 int debug = 1; // change to 0 to stop seeing so many messages
@@ -131,59 +132,21 @@ void __boot() {
     network_init();
     trap_init();
     keyboard_init();
-
-//    network_poll();
+  }
+    //network_poll();
     // see which cores are already on
     for (int i = 0; i < 32; i++)
       printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
 
 	//initialize memory for syncronization tests
-	tester = (struct list_header*)calloc(sizeof(struct list_header), 1);
-	test_arr = (struct packet_info*)calloc(sizeof(struct packet_info) * 8 * 32, 1);
+	struct list_header* tester = (struct list_header*)calloc(sizeof(struct list_header), 1);
+	struct packet_info* test_arr = (struct packet_info*)calloc(sizeof(struct packet_info) * 8 * 32, 1);
 
     // turn on all other cores
     set_cpu_enable(0xFFFFFFFF);
 
-    // see which cores got turned on
-    busy_wait(0.1);
-    for (int i = 0; i < 32; i++)
-      printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
+   test_sync(tester, test_arr + current_cpu_id() * 8, 8);
 
-  } else {
-    /* remaining cores boot after core 0 turns them on */
-
-    // nothing to initialize here... 
-  }
-
-test_sync(tester, test_arr + current_cpu_id() * 8, 8);
-
-//  printf("Core %d of %d is alive!\n", current_cpu_id(), current_cpu_exists());
-
-//  busy_wait(current_cpu_id() * 0.1); // wait a while so messages from different cores don't get so mixed up
-//  int size = 64 * 1024 * 4;
-//  printf("about to do calloc(%d, 1)\n", size);
-//  unsigned int t0  = current_cpu_cycles();
-//  calloc(size, 1);
-//  unsigned int t1  = current_cpu_cycles();
-//  printf("DONE (%u cycles)!\n", t1 - t0);
-
-  while (1);
-
-  for (int i = 1; i < 30; i++) {
-    int size = 1 << i;
-    printf("about to do calloc(%d, 1)\n", size);
-    calloc(size, 1);
-  }
-
-
-
-  while (1) {
-    printf("Core %d is still running...\n", current_cpu_id());
-    busy_wait(4.0); // wait 4 seconds
-    set_cpu_enable(0xFFFFFFFF);
-    network_start_receive();
-    network_poll();
-  }
 
   shutdown();
 }

@@ -235,7 +235,7 @@ void network_poll(){
 void network_trap();
 
 
-/*
+
 inline void spin_lock(int* m){
     register int *lockaddr asm("t0") = m;
     register int cond asm("t1");
@@ -298,7 +298,7 @@ void test_sync(struct list_header *list, struct packet_info *arr, int size){
         poll(list);
     }
     printf_m("Core %d has added all of its packets.\n", current_cpu_id());
-}*/
+}
 
 //adds port to the list of stuff kept track of (locks entry)
 void add_port(struct port_table_entry *port){
