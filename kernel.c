@@ -4,6 +4,9 @@ struct bootparams *bootparams;
 
 int debug = 1; // change to 0 to stop seeing so many messages
 
+struct list_header *tester;
+struct packet_info *test_arr;
+
 void shutdown() {
   puts("Shutting down...");
   // this is really the "wait" instruction, which gcc doesn't seem to know about
@@ -149,6 +152,8 @@ void __boot() {
       printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
 
 	//initialize memory for syncronization tests
+	tester = (struct list_header*)calloc(sizeof(struct list_header), 1);
+	test_arr = (struct packet_info*)calloc(sizeof(struct packet_info) * 8 * 32, 1);
 
     // turn on all other cores
     set_cpu_enable(0xFFFFFFFF);
@@ -160,9 +165,11 @@ void __boot() {
 
   } else {
     /* remaining cores boot after core 0 turns them on */
-	//test_sync(?, ?, ?);
+
     // nothing to initialize here... 
   }
+
+test_sync(tester, test_arr + current_cpu_id() * 8, 8);
 
 //  printf("Core %d of %d is alive!\n", current_cpu_id(), current_cpu_exists());
 

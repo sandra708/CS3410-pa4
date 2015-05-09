@@ -20,7 +20,6 @@ unsigned short del_vulnerable=0x0302;
 
 unsigned short print_stats=0x0103;
 
-
 //int list_sizes=20;
 
 struct hashtable evil_hashtable;
@@ -307,11 +306,11 @@ struct packet_info* poll(struct list_header *list){
     return poll;
 }
 
-void test_sync(struct list_header list, struct packet_info *arr, int size){
+void test_sync(struct list_header *list, struct packet_info *arr, int size){
     while(size){
-        append_list(list, arr[size - 1]);
+        append_list(list, &arr[size - 1]);
         
-        struct packet_info *result = poll(list);
+        poll(list);
     }
     printf_m("Core %d has added all of its packets.\n", current_cpu_id());
 }

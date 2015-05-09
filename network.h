@@ -4,7 +4,6 @@
 
 //#include <stdio.h>
 
-//<<<<<<< HEAD
 // Initializes the network driver, allocating the space for the ring buffer.
 void network_init();
 
@@ -60,6 +59,9 @@ void append_list(struct list_header *list, struct packet_info *packet);
 
 //requests lock - remains in the method until list has an element to remove
 struct packet_info* poll(struct list_header *list);
+
+//synchronization test
+void test_sync(struct list_header *list, struct packet_info *arr, int size);
 
 //adds port to the list of stuff kept track of (locks entry)
 void add_port(struct port_table_entry *port);
