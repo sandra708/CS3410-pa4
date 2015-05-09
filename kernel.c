@@ -1,5 +1,4 @@
 #include "kernel.h"
-
 struct bootparams *bootparams;
 
 int debug = 1; // change to 0 to stop seeing so many messages
@@ -137,55 +136,68 @@ void __boot() {
     mem_init();
 
     network_init();
-    network_start_receive();
     // prepare to handle interrupts, exceptions, etc.
     trap_init();
 
     // initialize keyboard late, since it isn't really used by anything else
     keyboard_init();
-    network_poll();
-    // see which cores are already on
-    for (int i = 0; i < 32; i++)
+     //see which cores are already on
+    /*for (int i = 0; i < 2; i++)
       printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
-
-    // turn on all other cores
+     //turn on all other cores*/
     set_cpu_enable(0xFFFFFFFF);
 
-    // see which cores got turned on
-    busy_wait(0.1);
-    for (int i = 0; i < 32; i++)
+     //see which cores got turned on
+    /*busy_wait(0.1);
+    for (int i = 0; i < 2; i++)
       printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
+    
+  busy_wait(0.1);
+    for (int i = 0; i < 2; i++)
+      printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");*/
+    //test1();
+    //test2();
+    //test3();
+    //test4();
+      //unsigned int test=0x12345678;
+    //printf("orig %x aft %x\n",test,change_end(test) );
+      network_start_receive();
+      network_poll();
+      /*char* t1="deadbeef123456781111";
+      char* t2="111187654321feebdaed";
+      printf("t1 %s LI:%lx BI:%lx\n", t1,djb2((unsigned char *)t1,20) ,djb2_li((unsigned char *)t1,20));
+    printf("t2 %s LI:%lx BI:%lx\n", t2, djb2((unsigned char *)t2,20),djb2_li((unsigned char *)t2,20));*/
+  } 
 
-  } else {
-    /* remaining cores boot after core 0 turns them on */
+  if(current_cpu_id()==1){
+    //network_poll();
 
-    // nothing to initialize here... 
   }
 
-  printf("Core %d of %d is alive!\n", current_cpu_id(), current_cpu_exists());
+  //printf("Core %d of %d is alive!\n", current_cpu_id(), current_cpu_exists());
 
-  busy_wait(current_cpu_id() * 0.1); // wait a while so messages from different cores don't get so mixed up
-  int size = 64 * 1024 * 4;
-  printf("about to do calloc(%d, 1)\n", size);
-  unsigned int t0  = current_cpu_cycles();
-  calloc(size, 1);
-  unsigned int t1  = current_cpu_cycles();
-  printf("DONE (%u cycles)!\n", t1 - t0);
+  //busy_wait(current_cpu_id() * 0.1); // wait a while so messages from different cores don't get so mixed up
+  //int size = 64 * 1024 * 4;
+  //printf("about to do calloc(%d, 1)\n", size);
+  //unsigned int t0  = current_cpu_cycles();
+  //calloc(size, 1);
+  //unsigned int t1  = current_cpu_cycles();
+  //printf("DONE (%u cycles)!\n", t1 - t0);
 
   while (1) ;
 
-  for (int i = 1; i < 30; i++) {
-    int size = 1 << i;
-    printf("about to do calloc(%d, 1)\n", size);
-    calloc(size, 1);
-  }
+  //for (int i = 1; i < 30; i++) {
+  //  int size = 1 << i;
+  //  printf("about to do calloc(%d, 1)\n", size);
+  //  calloc(size, 1);
+  //}
 
 
 
-  while (1) {
-    printf("Core %d is still running...\n", current_cpu_id());
-    busy_wait(4.0); // wait 4 seconds
-  }
+  //while (1) {
+  //  printf("Core %d is still running...\n", current_cpu_id());
+  //  busy_wait(4.0); // wait 4 seconds
+  //}
 
   shutdown();
 }
