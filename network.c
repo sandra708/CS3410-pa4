@@ -8,8 +8,8 @@ volatile struct dev_net *net_dev;
 
 volatile struct list_header *garbage_list;//list of packets spaces that can be filled with new packet
 volatile struct list_header *ring_buffer_list;//list of packets spaces in the ring buffer 
-volatile struct list_header *hashing_list;//list of packets waiting to be hashed
-volatile struct list_header *check_packet_list; //list of packets waiting to be checked for spam/vulnerable/evil/command
+volatile struct list_header *hashing_buffer_list;//list of packets waiting to be hashed
+volatile struct list_header *check_packet_buffer_list; //list of packets waiting to be checked for spam/vulnerable/evil/command
 
 
 unsigned short secret_little_endian=0x1034;
@@ -74,35 +74,50 @@ void network_init(){
     hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
     hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
     hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
-    set_cpu_status(current_cpu_status() | (1 << (8+INTR_KEYBOARD)));
-
 }
+
+void network_init_pipeline(){
+    int i,j;
+    for(i=0; i<16; i++){
+        if(bootparams->devtable[i].type == DEV_TYPE_NETWORK){
+            net_dev = physical_to_virtual(bootparams->devtable[i].start);//find the pointer to the network device 
+            net_dev->cmd=NET_SET_POWER;//turn on device
+            net_dev->data=1;
+            printf("Network Device is on..\n");
+
+            net_dev->rx_base=virtual_to_physical(ring);
+            net_dev->rx_tail=0;
+            net_dev->rx_capacity=RING_SIZE;
+            net_dev->rx_head=0;
+        }
+    }
+    hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
+    hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
+    hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
+}
+
 
 /* allocates pages for linked list of packets assumes at least
     space for 1 packet is needed
     also finishes instantiating garbage_list
 */
-
 void garbage_list_alloc(int num_packets){
-    struct packet * firstpacket=alloc_pages(1);
-    struct packet_info * first=firstpacket->packet_info;
+    struct packet_info * first=alloc_pages(1);;
     first->lock=0;
-    first->status=0;
-    first->packet=firstpacket;
-    struct packet * old=firstpacket;
+    first->status=IN_GARBAGE_LIST;
+    struct packet_info * old=firstpacket;
     garbage_list->head=first
+
    for (int i = 0; i < num_packets-1; i++){
-       struct packet * new=alloc_pages(1);
-       struct packet_info * pi=new->packet_info;
+       struct packet_info * new=alloc_pages(1);
         pi->lock=0;
-        pi->status=0;
-        pi->packet=new;
+        pi->status=IN_GARBAGE_LIST;
         pi->next=old; //set the next packet as the old packet
         old=new; //set self as the old packet
    }
+
    garbage_list->tail=old;
    garbage_list->length=num_packets;
-
 }
 
 void header_space_malloc(){
@@ -113,15 +128,23 @@ void header_space_malloc(){
     ring_buffer_list->lock=0;
     ring_buffer_list->length=0;
     struct list_header *hashing_list=malloc(sizeof(struct list_header));
-    hashing_list->lock=0;
-    hashing_list->lock=0;
+    hashing_buffer_list->lock=0;
+    hashing_buffer_list->lock=0;
     struct list_header *check_packet_list=malloc(sizeof(struct list_header));
-    check_packet_list->lock=0;
-    check_packet_list->length=0;
+    check_packet_buffer_list->lock=0;
+    check_packet_buffer_list->length=0;
+}
+
+void network_start_receive(){
+        net_dev->cmd=NET_SET_RECEIVE;//enable receive 
+        net_dev->data=1;
+        printf("Network receive enabled..\n");
+        time_start=current_cpu_cycles();
+        last_print=time_start;
 }
 
 // Starts receiving packets!
-void network_start_receive(){
+void network_start_receive_pipeline(){
 		net_dev->cmd=NET_SET_RECEIVE;//enable receive 
 		net_dev->data=1;
         time_start=current_cpu_cycles();
