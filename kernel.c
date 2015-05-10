@@ -71,6 +71,8 @@ void interrupt_handler(int cause)
 
 }
 
+
+
 void trap_handler(struct mips_core_data *state, unsigned int status, unsigned int cause)
 {
   if (debug) printf("trap_handler: status=0x%08x cause=0x%08x on core %d\n", status, cause, current_cpu_id());
@@ -132,20 +134,14 @@ void __boot() {
     network_init();
     trap_init();
     keyboard_init();
-  }
-    //network_poll();
+      set_cpu_enable(0xFFFFFFFF);
+      network_init();
+      network_start_receive();
+    network_poll();
     // see which cores are already on
-    for (int i = 0; i < 32; i++)
-      printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
-
-	//initialize memory for syncronization tests
-	struct list_header* tester = (struct list_header*)calloc(sizeof(struct list_header), 1);
-	struct packet_info* test_arr = (struct packet_info*)calloc(sizeof(struct packet_info) * 8 * 32, 1);
 
     // turn on all other cores
-    set_cpu_enable(0xFFFFFFFF);
-
-   test_sync(tester, test_arr + current_cpu_id() * 8, 8);
+}
 
 
   shutdown();

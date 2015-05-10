@@ -171,8 +171,15 @@ struct dev_net {
   unsigned int data;
   unsigned int rx_base;
   unsigned int rx_capacity;
+  
+  //incremented if you take something off the ring in non-pipeline 
+  //and incremented if you add an address in the ring in pipeline
   unsigned int rx_head;
+
   unsigned int rx_tail;
+
+  //incremented if you take something off the ring in the pipeline
+  unsigned int rx_buff;
   // tx ring omitted (you don't need it anyway)
 };
 

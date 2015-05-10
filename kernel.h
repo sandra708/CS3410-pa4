@@ -7,6 +7,7 @@
 #include "keyboard.h"
 #include "network.h"
 #include "hashtable.h"
+#include "pipeline.h"
 /* This is used by the trap handler to save the CPU state
  * Note: So long as trap handlers do not touch any coprocessor state (e.g.
  * memory management stuff in coprocessor 0, or the floating point registers,
@@ -138,7 +139,7 @@ void free(void *p); // free a pointer that came from malloc() or calloc()
 /* printf.c */
 
 int printf_u(const char *format, ...); // unsynchronized
-int printf_m(const char *format, ...); // protected by a mutex
+//int printf_m(const char *format, ...); // protected by a mutex
 int printf_i(const char *format, ...); // protected by a interrupt-disable
 //int printf_mi(const char *format, ...); // protected by a mutex followed by interrupt-disable
 int printf(const char *format, ...); // protected by something or other

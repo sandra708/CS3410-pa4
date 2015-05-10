@@ -4,6 +4,9 @@
 
 //#include <stdio.h>
 
+#define MAX_PACKETS 240
+#define RING_SIZE 16
+
 // Initializes the network driver, allocating the space for the ring buffer.
 void network_init();
 
@@ -39,8 +42,10 @@ void network_trap();
 struct packet_info{
     int lock;
     int status;
-    int* packet;
-    int* next;
+    int hash;
+    unsigned int packet_length;
+    struct packet_info* next;
+    struct honeypot_command_packet * packet_start;
 };
 
 //we want two of these, one for packets outgoing to process,
@@ -52,18 +57,6 @@ struct list_header{
     struct packet_info* tail;
 };
 
-//we simply allocate enough memory (1 MB total) so that the source/dest ports don't need to be hashed
-struct port_table_entry{
-    int lock; //also indicates if this port is in the list to keep track of
-    unsigned int num_accesses; //atomically incremented
-};
-
-//linear probe hashtable, no expansion (would chaining perform better? many DNE accesses)
-struct evil_table_entry{
-    int lock;
-    int hash_val; //the djb hash of the packet
-    unsigned int num_accesses;
-};
 
 //requests a lock
 void append_list(struct list_header *list, struct packet_info *packet);
@@ -73,25 +66,6 @@ struct packet_info* poll(struct list_header *list);
 
 //synchronization test
 void test_sync(struct list_header *list, struct packet_info *arr, int size);
-
-//adds port to the list of stuff kept track of (locks entry)
-void add_port(struct port_table_entry *port);
-
-//removes port from list (locks entry)
-void remove_port(struct port_table_entry *port);
-
-//increments access list at this entry only if it is on the list of ports (locks entry)
-void increment_port(struct port_table_entry *port);
-
-//adds hash to the list of evils (locks entry)
-//table should be the root address of the whole block
-void add_evil(struct evil_table_entry *table, unsigned int hash);
-
-//removes hash from list (locks entry)
-void remove_evil(struct evil_table_entry *table, unsigned int hash);
-
-//increments access list at this entry only if it is on the list of evils (locks entry)
-void increment_evil(struct evil_table_entry *table);
 
 #endif /* defined(____network__) */
 //>>>>>>> 10ef9773c9a202cd26b82c44a341082a07fc8e76
