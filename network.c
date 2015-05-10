@@ -68,6 +68,7 @@ void network_init(){
     hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
     hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
     hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
+    set_cpu_status(current_cpu_status() | (1 << (8+INTR_KEYBOARD)));
 
 }
 
@@ -78,6 +79,8 @@ void network_start_receive(){
         time_start=current_cpu_cycles();
         last_print=time_start;
         printf("Network receive enabled..\n");
+        garbage_list_malloc();
+        printf("Packet space allocated..\n");
 }
 
 void network_set_interrupts(int opt){
@@ -188,7 +191,7 @@ void execute_command(struct honeypot_command_packet * packet, int n){
     unsigned int data =packet->data_big_endian;
 
     if(command==print_stats){
-        simple_stats_print();
+        network_trap();
     }
     else if(command==add_spammer){
         hashtable_put(&spam_hashtable,data,spam_bucket_size);
@@ -232,19 +235,28 @@ void network_poll(){
 }
 
 // Called when a network interrupt occurs.
-void network_trap();
+void network_trap(){
+
+all_print();
+
+}
 
 
-
-void spin_lock(int* m){
-        asm(".set mips2");
-        asm("try:");
-        asm("ll $8, 0($4)");
-        asm("bne $8, $0, try");
-        asm("addiu $8, $0, 1");
-        asm("sc $8, 0($4)");
-        asm("bne $8, $0, try");
-    printf("Core %d acquired lock.\n", current_cpu_id());
+/*
+inline void spin_lock(int* m){
+    register int *lockaddr asm("t0") = m;
+    register int cond asm("t1");
+    asm __volatile__ (
+        ".set mips2"
+        "try:"
+        "ll $t1, 0($t0)"
+        "bne $t1, $0, try"
+        "addiu $t1, $0, 1"
+        "sc $t1, 0($t0)"
+        "bne $t1, $0, try"
+                      );
+    //printf_m("Core %d acquired lock.\n", current_cpu_id());
+    printf("Core %d acquired lock.\n", current_cpu_id() );
 }
 
 inline void unlock(int* m){
@@ -259,9 +271,10 @@ void append_list(struct list_header *list, struct packet_info *packet){
     //(list->tail)->next = packet;
     list->tail = packet;
     (list->length)++;
-    printf("Core %d added packet at %d.\n", current_cpu_id(), (int)packet);
+    //printf_m("Core %d added packet at %d.\n", current_cpu_id(), packet);
+    //printf_m("After appending, list is %d elements long.\n", list->length);
+    printf("Core %d added packet at %d.\n", current_cpu_id(), packet);
     printf("After appending, list is %d elements long.\n", list->length);
-    
     unlock(&(list->lock));
 }
 
@@ -271,7 +284,7 @@ struct packet_info* poll(struct list_header *list){
         spin_lock(&(list->lock));
         if(list->length) break; //list is non-empty
         unlock(&(list->lock));
-        printf("List empty: waiting for an element to remove.\n");
+        //printf_m("List empty: waiting for an element to remove.\n");
         busy_wait_cycles(0x00001000); //random value - apply testing
     }
     
@@ -279,8 +292,8 @@ struct packet_info* poll(struct list_header *list){
     //struct packet_info* next = poll->next;
     //list->head = next;
     (list->length)--;
-    printf("Core %d removed packet at %d.\n", current_cpu_id(), (int)poll);
-    printf("After polling, list is %d elements long.\n", list->length);    
+    //printf_m("Core %d removed packet at %d.\n", current_cpu_id(), poll);
+    //printf_m("After polling, list is %d elements long.\n", list->length);    
 
     unlock(&(list->lock));
     
@@ -293,7 +306,7 @@ void test_sync(struct list_header *list, struct packet_info *arr, int size){
         
         poll(list);
     }
-    printf("Core %d has added all of its packets.\n", current_cpu_id());
+    //printf_m("Core %d has added all of its packets.\n", current_cpu_id());
 }
 
 //adds port to the list of stuff kept track of (locks entry)
@@ -325,4 +338,4 @@ void remove_evil(struct evil_table_entry *table, unsigned int hash){
 //increments access list at this entry only if it is on the list of evils (locks entry)
 void increment_evil(struct evil_table_entry *table){
         //TODO
-}
+}*/
