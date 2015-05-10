@@ -369,9 +369,12 @@ void spin_lock(int* m){
     printf("Core %d acquired lock.\n", current_cpu_id() );
 }
 
-void unlock(int* m){
-	printf("Core %d released lock.\n", current_cpu_id());
-    m = 0;
+int* unlock(int *m){
+	printf("Core %d releasing lock.\n", current_cpu_id());
+    register int* addr asm("t0") = m;
+    asm(".set mips2");
+    asm("sw $0, 0($8)");
+    return addr;
 }
 
 
@@ -396,8 +399,9 @@ struct packet_info* poll(struct list_header *list){
     while(1){
         spin_lock(&(list->lock));
         if(list->length) break; //list is non-empty
+        printf("List empty: waiting for an element to remove.\n");
         unlock(&(list->lock));
-        //printf("List empty: waiting for an element to remove.\n");
+        
         busy_wait_cycles(0x00001000); //random value - apply testing
     }
     
@@ -418,6 +422,7 @@ void test_sync(struct list_header *list, struct packet_info *arr, int size){
         append_list(list, &arr[size - 1]);
         
         poll(list);
+        size--;
     }
     //printf("Core %d has added all of its packets.\n", current_cpu_id());
 }
