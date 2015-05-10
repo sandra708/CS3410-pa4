@@ -6,6 +6,12 @@
 
 volatile struct dev_net *net_dev;
 
+volatile struct list_header *garbage_list;//list of packets spaces that can be filled with new packet
+volatile struct list_header *ring_buffer_list;//list of packets spaces in the ring buffer 
+volatile struct list_header *hashing_list;//list of packets waiting to be hashed
+volatile struct list_header *check_packet_list; //list of packets waiting to be checked for spam/vulnerable/evil/command
+
+
 unsigned short secret_little_endian=0x1034;
 
 unsigned short add_spammer=0x0101;
@@ -74,6 +80,7 @@ void network_init(){
 
 /* allocates pages for linked list of packets assumes at least
     space for 1 packet is needed
+    also finishes instantiating garbage_list
 */
 
 void garbage_list_alloc(int num_packets){
@@ -81,21 +88,37 @@ void garbage_list_alloc(int num_packets){
     struct packet_info * first=firstpacket->packet_info;
     first->lock=0;
     first->status=0;
-    first->packet=(void *)firstpacket;
-    void * old=firstpacket;
-
+    first->packet=firstpacket;
+    struct packet * old=firstpacket;
+    garbage_list->head=first
    for (int i = 0; i < num_packets-1; i++){
        struct packet * new=alloc_pages(1);
        struct packet_info * pi=new->packet_info;
         pi->lock=0;
         pi->status=0;
-        pi->packet=(void *)new;
+        pi->packet=new;
         pi->next=old; //set the next packet as the old packet
         old=new; //set self as the old packet
    }
+   garbage_list->tail=old;
+   garbage_list->length=num_packets;
 
 }
 
+void header_space_malloc(){
+    struct list_header *garbage_list=malloc(sizeof(struct list_header));
+    garbage_list->lock=0;
+    garbage_list->length=0;
+    struct list_header *ring_buffer_list=malloc(sizeof(struct list_header));
+    ring_buffer_list->lock=0;
+    ring_buffer_list->length=0;
+    struct list_header *hashing_list=malloc(sizeof(struct list_header));
+    hashing_list->lock=0;
+    hashing_list->lock=0;
+    struct list_header *check_packet_list=malloc(sizeof(struct list_header));
+    check_packet_list->lock=0;
+    check_packet_list->length=0;
+}
 
 // Starts receiving packets!
 void network_start_receive(){
@@ -104,6 +127,10 @@ void network_start_receive(){
         time_start=current_cpu_cycles();
         last_print=time_start;
         printf("Network receive enabled..\n");
+
+        header_space_malloc();
+        printf("Space for linked list headers allocated...\n");
+
         garbage_list_alloc(MAX_PACKETS);
         printf("Packet space allocated..space for %d\n",MAX_PACKETS);
 }

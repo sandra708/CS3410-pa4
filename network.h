@@ -42,8 +42,8 @@ void network_trap();
 struct packet_info{
     int lock;
     int status;
-    unsigned int* packet;
-    unsigned int* next;
+    struct packet* packet;
+    struct packet* next;
 };
 
 //we want two of these, one for packets outgoing to process,
@@ -51,8 +51,8 @@ struct packet_info{
 struct list_header{
     int lock;
     int length; //number of elements in list -> 0 if empty
-    struct packet_info* head;
-    struct packet_info* tail;
+    struct packet* head;
+    struct packet* tail;
 };
 
 struct packet
