@@ -72,6 +72,30 @@ void network_init(){
 
 }
 
+/* allocates pages for linked list of packets assumes at least
+    space for 1 packet is needed
+*/
+
+void garbage_list_alloc(int num_packets){
+    struct packet * first=alloc_pages(1);
+    first->packet_info.lock=0;
+    first->packet_info.status=0;
+    first->packet_info.packet=first;
+    unsigned int * old=first;
+
+   for (int i = 0; i < num_packets-1; i++)
+   {
+       struct packet * new=alloc_pages(1);
+        new->packet_info.lock=0;
+        new->packet_info.status=0;
+        new->packet_info.packet=first;
+        new->packet_info.next=old; //set the next packet as the old packet
+        old=new; //set self as the old packet
+   }
+
+}
+
+
 // Starts receiving packets!
 void network_start_receive(){
 		net_dev->cmd=NET_SET_RECEIVE;//enable receive 
@@ -79,8 +103,8 @@ void network_start_receive(){
         time_start=current_cpu_cycles();
         last_print=time_start;
         printf("Network receive enabled..\n");
-        garbage_list_malloc();
-        printf("Packet space allocated..\n");
+        garbage_list_alloc(MAX_PACKETS);
+        printf("Packet space allocated..space for %d\n",MAX_PACKETS);
 }
 
 void network_set_interrupts(int opt){
