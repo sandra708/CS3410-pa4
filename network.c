@@ -14,6 +14,7 @@ volatile struct list_header *check_packet_buffer_list; //list of packets waiting
 volatile struct dma_ring_slot* ring_buffer;//pointer to the base of the ring buffer
 volatile struct dma_ring_slot* ring_buffer_pipeline;//pointer to the base of the ring buffer
 
+volatile unsigned int rx_buff;
 unsigned short secret_little_endian=0x1034;
 
 unsigned short add_spammer=0x0101;

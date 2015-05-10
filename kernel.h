@@ -7,6 +7,7 @@
 #include "keyboard.h"
 #include "network.h"
 #include "hashtable.h"
+#include "pipeline.h"
 /* This is used by the trap handler to save the CPU state
  * Note: So long as trap handlers do not touch any coprocessor state (e.g.
  * memory management stuff in coprocessor 0, or the floating point registers,
