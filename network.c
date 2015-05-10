@@ -77,19 +77,20 @@ void network_init(){
 */
 
 void garbage_list_alloc(int num_packets){
-    struct packet * first=alloc_pages(1);
-    first->packet_info.lock=0;
-    first->packet_info.status=0;
-    first->packet_info.packet=first;
-    unsigned int * old=first;
+    struct packet * firstpacket=alloc_pages(1);
+    struct packet_info * first=firstpacket->packet_info;
+    first->lock=0;
+    first->status=0;
+    first->packet=(void *)firstpacket;
+    void * old=firstpacket;
 
-   for (int i = 0; i < num_packets-1; i++)
-   {
+   for (int i = 0; i < num_packets-1; i++){
        struct packet * new=alloc_pages(1);
-        new->packet_info.lock=0;
-        new->packet_info.status=0;
-        new->packet_info.packet=first;
-        new->packet_info.next=old; //set the next packet as the old packet
+       struct packet_info * pi=new->packet_info;
+        pi->lock=0;
+        pi->status=0;
+        pi->packet=(void *)new;
+        pi->next=old; //set the next packet as the old packet
         old=new; //set self as the old packet
    }
 
