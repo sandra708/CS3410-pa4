@@ -5,7 +5,7 @@
 //#include <stdio.h>
 
 #define MAX_PACKETS 240
-
+#define RING_SIZE 16
 
 // Initializes the network driver, allocating the space for the ring buffer.
 void network_init();
@@ -42,8 +42,10 @@ void network_trap();
 struct packet_info{
     int lock;
     int status;
-    struct packet* packet;
-    struct packet* next;
+    int hash;
+    unsigned int packet_length;
+    struct packet_info* next;
+    struct honeypot_command_packet * packet_start;
 };
 
 //we want two of these, one for packets outgoing to process,
@@ -51,15 +53,10 @@ struct packet_info{
 struct list_header{
     int lock;
     int length; //number of elements in list -> 0 if empty
-    struct packet* head;
-    struct packet* tail;
+    struct packet_info* head;
+    struct packet_info* tail;
 };
 
-struct packet
-{
-    struct packet_info * packet_info;
-    struct honeypot_command_packet * packet;
-};
 
 //requests a lock
 void append_list(struct list_header *list, struct packet_info *packet);

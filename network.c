@@ -1,6 +1,6 @@
 #include "kernel.h"
 
-#define RING_SIZE 16
+
 #define DMA_SIZE PAGE_SIZE
 
 
@@ -11,6 +11,8 @@ volatile struct list_header *ring_buffer_list;//list of packets spaces in the ri
 volatile struct list_header *hashing_buffer_list;//list of packets waiting to be hashed
 volatile struct list_header *check_packet_buffer_list; //list of packets waiting to be checked for spam/vulnerable/evil/command
 
+volatile struct dma_ring_slot* ring_buffer;//pointer to the base of the ring buffer
+volatile struct dma_ring_slot* ring_buffer_pipeline;//pointer to the base of the ring buffer
 
 unsigned short secret_little_endian=0x1034;
 
@@ -57,16 +59,16 @@ void network_init(){
 			net_dev->data=1;
 			printf("Network Device is on..\n");
 
-			struct dma_ring_slot* ring = (struct dma_ring_slot*) malloc(sizeof(struct dma_ring_slot) * RING_SIZE);//malloc ring buffer
-            net_dev->rx_base=virtual_to_physical(ring);
+			ring_buffer = (struct dma_ring_slot*) malloc(sizeof(struct dma_ring_slot) * RING_SIZE);//malloc ring buffer
+            net_dev->rx_base=virtual_to_physical(ring_buffer);
 			net_dev->rx_tail=0;
 			net_dev->rx_capacity=RING_SIZE;
 			net_dev->rx_head=0;
 
 			for (j=0; j< RING_SIZE; j++) { //malloc ring buffer slots
     			unsigned int* space = malloc(DMA_SIZE);
-    			ring[j].dma_base = virtual_to_physical(space);
-    			ring[j].dma_len = NET_MAXPKT;
+    			ring_buffer[j].dma_base = virtual_to_physical(space);
+    			ring_buffer[j].dma_len = NET_MAXPKT;
 			}
 
     	}
@@ -84,11 +86,12 @@ void network_init_pipeline(){
             net_dev->cmd=NET_SET_POWER;//turn on device
             net_dev->data=1;
             printf("Network Device is on..\n");
-            struct dma_ring_slot* ring = (struct dma_ring_slot*) malloc(sizeof(struct dma_ring_slot) * RING_SIZE);//malloc ring buffer
-            net_dev->rx_base=virtual_to_physical(ring);
+            ring_buffer_pipeline = (struct dma_ring_slot*) malloc(sizeof(struct dma_ring_slot) * RING_SIZE);//malloc ring buffer
+            net_dev->rx_base=virtual_to_physical(ring_buffer_pipeline);
             net_dev->rx_tail=0;
             net_dev->rx_capacity=RING_SIZE;
             net_dev->rx_head=0;
+            net_dev->rx_buff=0;
 
         }
     }
@@ -102,16 +105,15 @@ void network_init_pipeline(){
     allocate.
 */
 int initial_dma_ring_slot_init(){
-    struct dma_ring_slot* ring = physical_to_virtual(net_dev->rx_base);
     spin_lock(&garbage_list->lock);
     int i=0;
     while( i < RING_SIZE && garbage_list->length>0){
         struct packet_info pckt=garbage_list->head;
         spin_lock(&pckt->lock);
         if(pckt.status==IN_GARBAGE_LIST){
-            ring[i].dma_len=NET_MAXPKT;
+            ring_buffer_pipeline[i].dma_len=NET_MAXPKT;
             pckt.status=IN_RING_BUFFER;
-            ring[i].dma_base=pckt.packet_start;
+            ring_buffer_pipeline[i].dma_base=pckt.packet_start;
             unlock(&pckt->lock);
             garbage_list->length--;
             garbage_list->head=pckt.next;
@@ -121,14 +123,17 @@ int initial_dma_ring_slot_init(){
         else{
             unlock(&pckt->lock);
             printf("Packet at %p has incorrect status for adding to ring buffer. ", pckt);
-            printf("Only allocated %d ring slots, Sincerely, core %d\n", i, current_cpu_id);
+            printf("Only allocated %d ring slots, Sincerely, core %d\n", i, current_cpu_id());
+            net_dev->rx_head=i;
             return i;
         }
     }
     unlock(&garbage_list->lock);
-    return RING_SIZE;
-    
+    printf("Succesfully allocated %d ring slots, Sincerely, core %d\n", RING_SIZE, current_cpu_id());
+    net_dev->rx_head=RING_SIZE;
+    return RING_SIZE;    
 }
+
 /* allocates pages for linked list of packets assumes at least
     space for 1 packet is needed
     also finishes instantiating garbage_list
@@ -324,15 +329,14 @@ void execute_command(struct honeypot_command_packet * packet, int n){
 void network_poll(){
 
     printf("polling..\n" );
-
-    struct dma_ring_slot * base= physical_to_virtual(net_dev->rx_base);
     struct dma_ring_slot *curr;
     while(1){
         while(net_dev->rx_head!=net_dev->rx_tail ){
-            curr=&base[net_dev->rx_tail%RING_SIZE];
+            curr=&ring_buffer[net_dev->rx_tail%RING_SIZE];
             bytes_handled+=curr->dma_len;
             total_packets++;
             execute_command(physical_to_virtual(curr->dma_base),curr->dma_len);
+
             curr->dma_len=NET_MAXPKT;
             net_dev->rx_tail++;   
         }
@@ -341,9 +345,7 @@ void network_poll(){
 
 // Called when a network interrupt occurs.
 void network_trap(){
-
-all_print();
-
+    all_print();
 }
 
 
