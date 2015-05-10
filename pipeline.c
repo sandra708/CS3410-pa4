@@ -1,4 +1,4 @@
-#include "kernel.h"
+//#include "kernel.h"
 
 
 /* executes transfer from ring buffer  to ring hashing list stage
@@ -6,6 +6,7 @@ called on by network_poll()*/
 
 
 /* executes transfer from hashing list then hashing then transfer to checking stage*/
+/*
 void execute_hashing_stage(struct list_header * hashing_buffer_list, struct list_header * checking_buffer_list){
 
   spin_lock(&hashing_buffer_list->lock);
@@ -39,10 +40,10 @@ void execute_hashing_stage(struct list_header * hashing_buffer_list, struct list
   checking_buffer_list->tail=current_packet;
   checking_buffer_list->length++;
   unlock(&checking_buffer_list->lock);
-}
+}*/
 
 /* executes transfer from checking list then checking then transfer to garbage list stage*/
-
+/*
 void execute_checking_stage(struct list_header * checking_buffer_list, struct list_header * garbage_list){
 
   spin_lock(&checking_buffer_list->lock);
@@ -79,11 +80,12 @@ void execute_checking_stage(struct list_header * checking_buffer_list, struct li
   garbage_list->length++;
   unlock(&garbage_list->lock);
 
-}
+}*/
 
 /* executes transfer from garbage list to ring buffer list stage
     Assumes that only one core performs this job and is therefore unsycronized
 */
+/*
 void execute_garbage_list_transfer_stage(struct dev_net * net_dev, struct list_header * garbage_list, struct dma_ring_slot* ring_buffer, unsigned int rx_buff){
 
   if(net_dev->rx_head%RING_SIZE < rx_buff%RING_SIZE){//if there is space in the ring buffer 
@@ -122,21 +124,24 @@ void execute_garbage_list_transfer_stage(struct dev_net * net_dev, struct list_h
     printf("Waiting for stuff to be removed from the buffer.....Sincerely, core %d\n",current_cpu_id());
   }
 
-}
+}*/
 
 
 /* gets the page base from the vaddr of the honeypot_command_packet pointer */
+/*
 void * get_page_base(int dma_base){
 
   int total=sizeof(int)+sizeof(int)+sizeof(int)+sizeof(unsigned int)+sizeof(struct packet_info *);
   returns (void *)(dma_base-total);
 
-}
+}*/
 
 /*removes a packet from the ring buffer into hashing_buffer_list
 assumes that there is a packet to remove
 returns new rx_buff if succesful and old one if unsucessful
 */
+
+/*
 int execute_remove_from_ring_buffer(struct dma_ring_slot* ring_buffer, struct list_header * hashing_buffer_list, int rx_buff){
   struct dma_ring_slot *curr =&ring_buffer[rx_buff%RING_SIZE];
   
@@ -165,3 +170,4 @@ int execute_remove_from_ring_buffer(struct dma_ring_slot* ring_buffer, struct li
   return rx_buff;
 
 }
+*/

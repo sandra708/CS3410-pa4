@@ -51,6 +51,7 @@ int last_print=0;
 int bytes_handled=0;
 
 // Initializes the network driver, allocating the space for the ring buffer.
+/*
 void network_init(){
 	int i,j;
 	for(i=0; i<16; i++){
@@ -77,8 +78,9 @@ void network_init(){
     hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
     hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
     hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
-}
+}*/
 
+/*
 void network_init_pipeline(){
     int i,j;
     for(i=0; i<16; i++){
@@ -99,12 +101,12 @@ void network_init_pipeline(){
     hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
     hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
     hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
-}
+}*/
 
 /* assumes you have malloced a garbage list and the ring buffer
     returns the number of ring slots it was able to succesfully
     allocate.
-*/
+*/ /*
 int initial_dma_ring_slot_init(){
     spin_lock(&garbage_list->lock);
     int i=0;
@@ -133,12 +135,14 @@ int initial_dma_ring_slot_init(){
     printf("Succesfully allocated %d ring slots, Sincerely, core %d\n", RING_SIZE, current_cpu_id());
     net_dev->rx_head=RING_SIZE;
     return RING_SIZE;    
-}
+}*/
 
 /* allocates pages for linked list of packets assumes at least
     space for 1 packet is needed
     also finishes instantiating garbage_list
 */
+
+/*
 void garbage_list_alloc(int num_packets){
     struct packet_info * first=alloc_pages(1);;
     first->lock=0;
@@ -156,8 +160,9 @@ void garbage_list_alloc(int num_packets){
 
    garbage_list->tail=old;
    garbage_list->length=num_packets;
-}
+}*/
 
+/*
 void header_space_malloc(){
     struct list_header *garbage_list=malloc(sizeof(struct list_header));
     garbage_list->lock=0;
@@ -171,7 +176,7 @@ void header_space_malloc(){
     struct list_header *check_packet_list=malloc(sizeof(struct list_header));
     check_packet_buffer_list->lock=0;
     check_packet_buffer_list->length=0;
-}
+}*/
 
 void network_start_receive(){
         net_dev->cmd=NET_SET_RECEIVE;//enable receive 
@@ -182,6 +187,7 @@ void network_start_receive(){
 }
 
 // Starts receiving packets!
+/*
 void network_start_receive_pipeline(){
 		net_dev->cmd=NET_SET_RECEIVE;//enable receive 
 		net_dev->data=1;
@@ -199,7 +205,7 @@ void network_start_receive_pipeline(){
 void network_set_interrupts(int opt){
 	net_dev->cmd=NET_SET_INTERRUPTS;//enable interuppts
 	net_dev->data=1;
-}
+}*/
 
 /*  Determines if the packet is a command packet
     returns 0 if not command packet
@@ -327,6 +333,7 @@ void execute_command(struct honeypot_command_packet * packet, int n){
 }
 
 // Continually polls for data on the ring buffer until the
+/*
 void network_poll(){
 
     printf("polling..\n" );
@@ -342,7 +349,7 @@ void network_poll(){
             net_dev->rx_tail++;   
         }
     }
-}
+}*/
 
 // Called when a network interrupt occurs.
 void network_trap(){
@@ -351,18 +358,18 @@ void network_trap(){
 
 
 
-inline void spin_lock(int* m){
+void spin_lock(int* m){
     asm(".set mips2");
     asm("try:");
     asm("ll $8, 0($4)");
     asm("bne $8, $0, try");
     asm("addiu $8, $0, 1");
     asm("sc $8, 0($4)");
-    asm("bne $8, $0, try");
+    asm("beq $8, $0, try");
     printf("Core %d acquired lock.\n", current_cpu_id() );
 }
 
-inline void unlock(int* m){
+void unlock(int* m){
 	printf("Core %d released lock.\n", current_cpu_id());
     m = 0;
 }
@@ -371,12 +378,16 @@ inline void unlock(int* m){
 //requests a lock
 void append_list(struct list_header *list, struct packet_info *packet){
     spin_lock(&(list->lock));
-    
-    (list->tail)->next = packet;
-    list->tail = packet;
+    if(list->length == 0){
+        list->head = packet;
+        list->tail = packet;
+    }else{
+        (list->tail)->next = packet;
+        list->tail = packet;
+    }
     (list->length)++;
-    //printf("Core %d added packet at %d.\n", current_cpu_id(), packet);
-    //printf("After appending, list is %d elements long.\n", list->length);
+    printf("Core %d added packet at %p.\n", current_cpu_id(), packet);
+    printf("After appending, list is %d elements long.\n", list->length);
     unlock(&(list->lock));
 }
 
@@ -394,8 +405,8 @@ struct packet_info* poll(struct list_header *list){
     struct packet_info* next = poll->next;
     list->head = next;
     (list->length)--;
-    //printf("Core %d removed packet at %d.\n", current_cpu_id(), (int)poll);
-    //printf("After polling, list is %d elements long.\n", list->length);      
+    printf("Core %d removed packet at %p.\n", current_cpu_id(), poll);
+    printf("After polling, list is %d elements long.\n", list->length);      
 
     unlock(&(list->lock));
     

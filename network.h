@@ -68,4 +68,3 @@ struct packet_info* poll(struct list_header *list);
 void test_sync(struct list_header *list, struct packet_info *arr, int size);
 
 #endif /* defined(____network__) */
-//>>>>>>> 10ef9773c9a202cd26b82c44a341082a07fc8e76
