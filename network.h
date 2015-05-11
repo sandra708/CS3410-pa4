@@ -4,7 +4,7 @@
 
 //#include <stdio.h>
 
-#define MAX_PACKETS 240
+#define MAX_PACKETS 18
 #define RING_SIZE 16
 #define secret_little_endian 0x1034
 
@@ -26,8 +26,6 @@
 #define spam_bucket_size 3
 #define vulnerable_bucket_size 3
 
-#define num_packets 5
-
 /*codes to define the packet type in check_packet_pipeline();
 neutral=0   spam=1  evil=3 vulnerable=5
 spam&evil=4 spam&vulnerable=6 evil&vulnerable=8
@@ -44,8 +42,9 @@ struct packet_info{
     int status; //status values defined in pipeline.h
     int hash;
     unsigned int packet_length; //bytes in honeypot_command_packet
-    struct packet_info* next;
-    struct honeypot_command_packet * packet_start;
+    struct packet_info* next; //packet in front of me
+    struct packet_info* prev; //packet behind me
+    struct honeypot_command_packet packet_start; //honeypot data start
 };
 
 struct list_header{
@@ -109,10 +108,10 @@ int check_packet_pipeline(struct honeypot_command_packet * packet, int hash);
 void update_stats(struct packet_info *current_packet);
 
 //mutex locker
-void spin_lock(int* m);
+void spin_lock(volatile int* m);
 
 //mutex unlocker
-int* unlock(int *m);
+volatile int* unlock(volatile int *m);
 
 //assigns each core to its pipeline stage
 void core_start(int core_id);

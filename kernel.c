@@ -135,18 +135,22 @@ void __boot() {
     keyboard_init();
     network_init_pipeline();
     network_start_receive();
-    while(1);
-    
+    //for (int i = 0; i < 32; i++)
+    //  printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");    
+
 
     // turn on all other cores
       set_cpu_enable(0xFFFFFFFF);
+
+    //busy_wait(0.1);
+    //for (int i = 0; i < 32; i++)
+    //printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
   }
-  else if(current_cpu_id()==1){
-    for (int i = 1; i < 32; ++i)
-    {
-      core_start(i);
-    }
-  }
+  
+  core_start(current_cpu_id());
+
+  while(1);
+  
 
 
   shutdown();

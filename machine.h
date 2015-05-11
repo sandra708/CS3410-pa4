@@ -177,9 +177,6 @@ struct dev_net {
   unsigned int rx_head;
 
   unsigned int rx_tail;
-
-  //incremented if you take something off the ring in the pipeline
-  unsigned int rx_buff;
   // tx ring omitted (you don't need it anyway)
 };
 

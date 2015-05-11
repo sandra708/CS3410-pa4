@@ -24,6 +24,7 @@ volatile int total_packets=0;
 volatile int time_start=0;
 volatile int last_print=0;
 volatile int bytes_handled=0;
+volatile int * rx_buff_lock;
 
 struct hashtable evil_hashtable;
 struct hashtable vulnerable_hashtable;
@@ -66,14 +67,23 @@ void network_init(){
 
 void header_space_malloc(){
     garbage_list=malloc(sizeof(struct list_header));
-    garbage_list->lock=0;
     garbage_list->length=0;
+    garbage_list->lock=0;
+    //garbage_list->lock=(int *)malloc(sizeof(int *));
+    //garbage_list->lock[0]=0;
+    //garbage_list->pa
+    printf("header_space_malloc:\n");
+      printf("garbage_list %p\n",garbage_list);
+      printf("garbage_list length start %p\n",&garbage_list->length);
+      printf("lock %p\n",&garbage_list->lock);
     ring_buffer_list=malloc(sizeof(struct list_header));
     ring_buffer_list->lock=0;
     ring_buffer_list->length=0;
+
     hashing_buffer_list=malloc(sizeof(struct list_header));
     hashing_buffer_list->lock=0;
-    hashing_buffer_list->lock=0;
+    hashing_buffer_list->length=0;
+
     check_packet_buffer_list=malloc(sizeof(struct list_header));
     check_packet_buffer_list->lock=0;
     check_packet_buffer_list->length=0;
@@ -82,24 +92,25 @@ void header_space_malloc(){
 /* Allocates pages for linked list of num_packets packets assumes at least
     space for 1 packet is needed.
     Also finishes instantiating garbage_list with all of these packets*/
-void garbage_list_alloc(){
+void garbage_list_alloc(int num_packets){
     struct packet_info * first=alloc_pages(1);
     first->lock=0;
     first->status=IN_GARBAGE_LIST;
-    struct packet_info * old=first;
-
+    struct packet_info * before=first;
+    struct packet_info * me;
     for (int i = 1; i < num_packets; i++){
-        struct packet_info * pi=alloc_pages(1);
-        pi->lock=0;
-        pi->status=IN_GARBAGE_LIST;
-        pi->next=old; //set the next packet as the old packet
-        printf("i %d self %p\n",i,pi );
-        printf("i %d next %p\n",i,old );
-        old=pi; //set self as the old packet
-
+        me=alloc_pages(1);
+        me->lock=0;
+        me->status=IN_GARBAGE_LIST;
+        me->packet_length=i;//set to 0 later
+        before->prev=me; //packet before me has me as its previous
+        me->next=before; //my next is the packet before me
+        //printf("i %d self %p next %p pktstart %p\n",i,me,before,&me->packet_start );
+        before=me; 
     }
-    garbage_list->head=old;
-    garbage_list->tail=first;
+
+    garbage_list->head=first;
+    garbage_list->tail=before;
     garbage_list->length=num_packets;
 }
 
@@ -108,42 +119,46 @@ void garbage_list_alloc(){
     allocate.
 */ 
 int initial_dma_ring_slot_init(){
-    int  gl=(garbage_list->lock);
-    spin_lock(&gl);
+   // printf("b %p\n",garbage_list->lock);
+   // printf("b %d\n",*garbage_list->lock);
+   // printf("b %p\n",&garbage_list->lock);
+   // printf("initial_dma_ring_slot_init:\n");
+    //int gl = (int) &garbage_list->lock;
+    spin_lock(&garbage_list->lock);
     int i=0;
     while( i < RING_SIZE && garbage_list->length>0){
-
-        struct packet_info pckt=*garbage_list->head;
-        spin_lock(&pckt.lock);
-        if(pckt.status==IN_GARBAGE_LIST){
+        spin_lock(&garbage_list->head->lock);
+        if(garbage_list->head->status==IN_GARBAGE_LIST){
             ring_buffer_pipeline[i].dma_len=NET_MAXPKT;
-
-            pckt.status=IN_RING_BUFFER;
-
-            ring_buffer_pipeline[i].dma_base=virtual_to_physical(pckt.packet_start);
-
-            unlock(&pckt.lock);
+            garbage_list->head->status=IN_RING_BUFFER;
+            //printf("i %d glis %p\n",i,garbage_list->head );
+            ring_buffer_pipeline[i].dma_base=virtual_to_physical(&garbage_list->head->packet_start);
+            int *temp = &garbage_list->head->lock;
+            garbage_list->head=garbage_list->head->prev;
+            unlock(temp);
             garbage_list->length--;
-            garbage_list->head=pckt.next;
             i++;    
-
         }
-        
         else{
-            unlock(&pckt.lock);
-            printf("Packet at %p has incorrect status for adding to ring buffer. ", &pckt);
-            printf("Only allocated %d ring slots, Sincerely, core %d\n", i, current_cpu_id());
-            net_dev->rx_head=i;
+            unlock(&garbage_list->head->lock);
+            unlock(&garbage_list->lock);
+            //printf("Packet at %p has incorrect status for adding to ring buffer. ", garbage_list->head);
+            //printf("Only allocated %d/%d ring slots, Sincerely, core %d\n", i,RING_SIZE, current_cpu_id());
+            net_dev->rx_head=i-1;
             return i;
         }
 
     }
+    unlock(&garbage_list->lock);
 
-
-    unlock(&gl);
-    printf("Succesfully allocated %d ring slots, Sincerely, core %d\n", RING_SIZE, current_cpu_id());
-    net_dev->rx_head=RING_SIZE;
-    return RING_SIZE;    
+    //printf("Succesfully allocated %d/%d ring slots, Sincerely, core %d\n", i,RING_SIZE, current_cpu_id());
+   // printf("ring_buffer %p\n",ring_buffer_pipeline );
+    for (int j = 0; j < i; j++)
+    {
+        //printf("dma start %p\n",&ring_buffer_pipeline[j] );
+        //printf("ring_buffer[%d]=%p\n",j,physical_to_virtual(ring_buffer_pipeline[j].dma_base));
+    }
+    return i;    
 }
 
 /* Initializes the network driver, allocates the space for the ring buffer
@@ -162,32 +177,30 @@ void network_init_pipeline(){
             net_dev->rx_tail=0;
             
             net_dev->rx_head=0;
-            net_dev->rx_buff=0;
+            rx_buff=0;
 
         }
     }
 
     header_space_malloc();
-    printf("Space for linked list headers allocated...\n");
-    garbage_list_alloc(MAX_PACKETS);
+    printf("Space for linked list headers allocated...\n");//
+    garbage_list_alloc(MAX_PACKETS);//
     printf("Packet space allocated..enough space for %d\n",MAX_PACKETS);
-    int spots= initial_dma_ring_slot_init();
+    int spots= initial_dma_ring_slot_init();//
     printf("Succesfully added %d spots to the ring_buffer\n", spots);
     net_dev->rx_capacity=spots;
-
+    printf("start rx_tail %d\n",net_dev->rx_tail );
     hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
     hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
     hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
 }
 
 void network_start_receive(){
-        net_dev->cmd=NET_SET_RECEIVE;//enable receive 
-        net_dev->data=1;
-        printf("Network receive enabled..\n");
-        time_start=current_cpu_cycles();
-        last_print=time_start;
-        printf("3\n");
-
+    net_dev->cmd=NET_SET_RECEIVE;//enable receive 
+    net_dev->data=1;
+    printf("Network receive enabled..\n");
+    time_start=current_cpu_cycles();
+    last_print=time_start;
 }
 
 void network_set_interrupts(int opt){
@@ -341,6 +354,7 @@ void network_poll(){
 
 // Called when a network interrupt occurs.
 void network_trap(){
+
     all_print();
 }
 
@@ -403,30 +417,38 @@ void update_stats(struct packet_info *current_packet){
 }
 
 void core_start(int core_id){
-    if(core_id==1){
+
+    if(core_id==0){
+        while(1);
+    }
+    else if(core_id==1){
+
         while(1){
-            execute_garbage_list_transfer_stage(net_dev, garbage_list, ring_buffer_pipeline, rx_buff);
+            //printf("executing glts core:%d\n",current_cpu_id() );
+            //execute_garbage_list_transfer_stage(net_dev, garbage_list, ring_buffer_pipeline, rx_buff);
         }
     }
     else if(core_id==2){
         while(1){
             //aquire lock for rx_buff 
-            rx_buff=execute_remove_from_ring_buffer(ring_buffer_pipeline, hashing_buffer_list, rx_buff);
+            
+            //rx_buff=execute_remove_from_ring_buffer(ring_buffer_pipeline, hashing_buffer_list, rx_buff,net_dev->rx_head);
+            printf("buff%d head %d tail %d  ?\n",rx_buff,net_dev->rx_head,net_dev->rx_tail );
         }
     }
-    else if (core_id<30){
+    else if (core_id==3){
         while(1){
             execute_hashing_stage(hashing_buffer_list, check_packet_buffer_list);
         }
     }
     else{
         while(1){
-            execute_checking_stage(check_packet_buffer_list, garbage_list);
+            //execute_checking_stage(check_packet_buffer_list, garbage_list);
         }
     }
 }
 
-void spin_lock(int* m){
+void spin_lock(volatile int* m){
     asm(".set mips2");
     asm("try:");
     asm("ll $8, 0($4)");
@@ -434,18 +456,18 @@ void spin_lock(int* m){
     asm("addiu $8, $0, 1");
     asm("sc $8, 0($4)");
     asm("beq $8, $0, try");
-    printf("Core %d acquired lock.\n", current_cpu_id() );
+     printf("Core %d acquired lock. at %p\n", current_cpu_id() ,m);
 }
 
-int* unlock(int *m){
+volatile int* unlock(volatile int *m){
 	printf("Core %d releasing lock.\n", current_cpu_id());
-    register int* addr asm("t0") = m;
+    register volatile int* addr asm("t0") = m;
     asm(".set mips2");
     asm("sw $0, 0($8)");
     return addr;
 }
 
-
+/*
 //requests a lock
 void append_list(struct list_header *list, struct packet_info *packet){
     spin_lock(&(list->lock));
@@ -493,5 +515,5 @@ void test_sync(struct list_header *list, struct packet_info *arr, int size){
         size--;
     }
     //printf("Core %d has added all of its packets.\n", current_cpu_id());
-}
+}*/
 

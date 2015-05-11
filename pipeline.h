@@ -18,4 +18,4 @@ void execute_checking_stage(volatile struct list_header * checking_list,volatile
 void execute_garbage_list_transfer_stage(volatile struct dev_net * net_dev,volatile  struct list_header * garbage_list,volatile  struct dma_ring_slot * ring_buffer, unsigned int rx_buff);
 
 /* executes transfer from ring buffer to hashing_buffer_list*/
-int execute_remove_from_ring_buffer(volatile struct dma_ring_slot* ring_buffer,volatile  struct list_header * hashing_buffer_list, int rx_buff);
+int execute_remove_from_ring_buffer(volatile struct dma_ring_slot* ring_buffer,volatile  struct list_header * hashing_buffer_list, int rx_buff, int rx_head);
