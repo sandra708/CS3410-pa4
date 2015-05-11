@@ -131,25 +131,21 @@ void __boot() {
     printf("Welcome to my kernel!\n");
     printf("Running on a %d-way multi-core machine\n", current_cpu_exists());
     mem_init();
-    //network_init();
     trap_init();
     keyboard_init();
-      
-      //network_init();
-      //network_start_receive();
-    //network_poll();
-    /*struct list_header* */ tester = (struct list_header*) calloc(sizeof(struct list_header), 1);
-    printf("List header located at %p \n", tester);
-
-    /*struct packet_info* */ test_arr = (struct packet_info*) calloc(sizeof(struct packet_info) * 32 * 8, 1);
-    printf("List elements located in array at %p \n", test_arr);
-    // see which cores are already on
+    network_init_pipeline();
+    network_start_receive();
+    while(1);
+    
 
     // turn on all other cores
       set_cpu_enable(0xFFFFFFFF);
-        test_sync(tester, test_arr + current_cpu_id() * 8, 8);
-  }else{
-      test_sync(tester, test_arr + current_cpu_id() * 8, 8);
+  }
+  else if(current_cpu_id()==1){
+    for (int i = 1; i < 32; ++i)
+    {
+      core_start(i);
+    }
   }
 
 

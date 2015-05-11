@@ -26,7 +26,7 @@
 #define spam_bucket_size 3
 #define vulnerable_bucket_size 3
 
-#define num_packets 250
+#define num_packets 5
 
 /*codes to define the packet type in check_packet_pipeline();
 neutral=0   spam=1  evil=3 vulnerable=5
@@ -66,20 +66,6 @@ void network_init_pipeline();
 
 // Starts receiving packets!
 void network_start_receive();
-
-/*  Populates the initial 16 spaces of the ring slot
-    Assumes you have malloced a garbage list and the ring buffer
-    returns the number of ring slots it was able to succesfully
-    allocate.*/ 
-int initial_dma_ring_slot_init();
-
-/* Allocates pages for linked list of num_packets packets assumes at least
-    space for 1 packet is needed.
-    Also finishes instantiating garbage_list with all of these packets*/
-void garbage_list_alloc();
-
-/* Allocates all of the header structs for the linked_lists*/
-void header_space_malloc();
 
 unsigned long djb2(unsigned char *pkt, int n);
 
@@ -128,8 +114,8 @@ void spin_lock(int* m);
 //mutex unlocker
 int* unlock(int *m);
 
-
-
+//assigns each core to its pipeline stage
+void core_start(int core_id);
 
 //requests a lock
 void append_list(struct list_header *list, struct packet_info *packet);
