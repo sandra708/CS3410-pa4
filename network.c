@@ -432,13 +432,14 @@ void core_start(int core_id){
         while(1){
             //aquire lock for rx_buff 
             
-            //rx_buff=execute_remove_from_ring_buffer(ring_buffer_pipeline, hashing_buffer_list, rx_buff,net_dev->rx_head);
-            printf("buff%d head %d tail %d  ?\n",rx_buff,net_dev->rx_head,net_dev->rx_tail );
+            rx_buff=execute_remove_from_ring_buffer(ring_buffer_pipeline, hashing_buffer_list, rx_buff,net_dev->rx_head);
+            //printf("buff%d head %d tail %d  ?\n",rx_buff,net_dev->rx_head,net_dev->rx_tail );
         }
     }
     else if (core_id==3){
         while(1){
             execute_hashing_stage(hashing_buffer_list, check_packet_buffer_list);
+
         }
     }
     else{
@@ -456,11 +457,11 @@ void spin_lock(volatile int* m){
     asm("addiu $8, $0, 1");
     asm("sc $8, 0($4)");
     asm("beq $8, $0, try");
-     printf("Core %d acquired lock. at %p\n", current_cpu_id() ,m);
+     //printf("Core %d acquired lock. at %p\n", current_cpu_id() ,m);
 }
 
 volatile int* unlock(volatile int *m){
-	printf("Core %d releasing lock.\n", current_cpu_id());
+	//printf("Core %d releasing lock.\n", current_cpu_id());
     register volatile int* addr asm("t0") = m;
     asm(".set mips2");
     asm("sw $0, 0($8)");

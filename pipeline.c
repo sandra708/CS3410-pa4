@@ -5,19 +5,27 @@ void execute_hashing_stage(volatile struct list_header * hashing_buffer_list,vol
 //printf("execute_hashing_stage 0*\n");
 
   struct packet_info * current_packet;
+//printf("execute_hashing_stage 1*\n");
   spin_lock(&hashing_buffer_list->lock);
 
   if(hashing_buffer_list->length>0){
+      printf("execute_hashing_stage 2*\n");
+
     current_packet=hashing_buffer_list->head;
+          printf("execute_hashing_stage %p\n", hashing_buffer_list->head);
+
     spin_lock(&current_packet->lock);
     if(current_packet->status==IN_HASHING_LIST){
-printf("execute_hashing_stage 2*\n");
+      printf("execute_hashing_stage 3*\n");
+
       hashing_buffer_list->head=current_packet->prev;
       hashing_buffer_list->length--;
       unlock(&hashing_buffer_list->lock);
 
       current_packet->status=BEING_HASHED;
       current_packet->hash=djb2((unsigned char *)&current_packet->packet_start,current_packet->packet_length);
+         printf("hash %d\n",current_packet->hash );
+
       current_packet->status=IN_CHECKING_LIST;
       spin_lock(&checking_buffer_list->lock);
       current_packet->next=checking_buffer_list->tail;
@@ -27,7 +35,7 @@ printf("execute_hashing_stage 2*\n");
       unlock(&current_packet->lock);
     }
     else{
-      printf("execute_hashing_stage 3*\n");
+      printf("execute_hashing_stage 4*\n");
       unlock(&current_packet->lock);
       unlock(&hashing_buffer_list->lock);
       //printf("%d\n",current_cpu_id() );
@@ -150,23 +158,24 @@ void * get_page_base(void* dma_base_vaddr){
 //returns new rx_buff if succesful and old one if unsucessful
 //
 int execute_remove_from_ring_buffer(volatile struct dma_ring_slot* ring_buffer,volatile struct list_header * hashing_buffer_list, int rx_buff,int rx_head){
-printf("buff%d head %d \n",rx_buff,rx_head );
+//printf("buff%d head %d \n",rx_buff,rx_head );
 
 if(rx_buff%RING_SIZE < rx_head%RING_SIZE){
   volatile struct dma_ring_slot *curr =&ring_buffer[rx_buff%RING_SIZE];
   struct packet_info *current_packet=get_page_base(physical_to_virtual(curr->dma_base));
   
-  printf("execute_remove_from_ring_buffer dma_basev %p pckt_stt %p \n",physical_to_virtual(curr->dma_base),current_packet);
-//printf("execute_hashing_stage %p %p %p %d \n",hashing_buffer_list,hashing_buffer_list->head,&hashing_buffer_list->head->lock,hashing_buffer_list->head->lock );
-printf("&current_packet->lock %p\n",&current_packet->lock);
+  //printf("execute_remove_from_ring_buffer dma_basev %p pckt_stt %p \n",physical_to_virtual(curr->dma_base),current_packet);
+  //printf("&current_packet->lock %p\n",&current_packet->lock);
   spin_lock(&current_packet->lock);
-  printf("sp obt\n");
   if(current_packet->status==IN_RING_BUFFER){ //double check that the packet is in the ring buffer
     current_packet->status=IN_HASHING_LIST;
     current_packet->packet_length=curr->dma_len;
     spin_lock(&hashing_buffer_list->lock);
     current_packet->next=hashing_buffer_list->tail;
     hashing_buffer_list->tail=current_packet;
+    if(hashing_buffer_list->length==0){
+      hashing_buffer_list->head=current_packet;
+    }
     hashing_buffer_list->length++;
     unlock(&current_packet->lock);
     unlock(&hashing_buffer_list->lock);
@@ -179,7 +188,7 @@ printf("&current_packet->lock %p\n",&current_packet->lock);
       return rx_buff;
   }
 
-  printf("execute_remove_from_ring_buffer 0\n");
+  //printf("execute_remove_from_ring_buffer 0\n");
   //spin_lock(rx_buff_lock);
   int j=rx_buff;
   //unlock(rx_buff_lock);
