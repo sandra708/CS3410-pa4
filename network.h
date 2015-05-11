@@ -10,7 +10,7 @@
 
 #define add_spammer 0x0101
 #define add_evil_m 0x0201
-#define add_vulnerable=0x0301
+#define add_vulnerable 0x0301
 
 #define del_spammer 0x0102
 #define del_evil 0x0202
@@ -37,6 +37,23 @@ spam&evil&vulnerable=9
 #define is_spammer 1
 #define is_evil 3
 #define is_vulnerable 5
+
+
+struct packet_info{
+    int lock;
+    int status; //status values defined in pipeline.h
+    int hash;
+    unsigned int packet_length; //bytes in honeypot_command_packet
+    struct packet_info* next;
+    struct honeypot_command_packet * packet_start;
+};
+
+struct list_header{
+    int lock;
+    int length; //number of elements in list -> 0 if empty
+    struct packet_info* head;
+    struct packet_info* tail;
+};
 
 // Initializes the network driver, allocating the space for the ring buffer.
 void network_init();
@@ -112,21 +129,6 @@ void spin_lock(int* m);
 int* unlock(int *m);
 
 
-struct packet_info{
-    int lock;
-    int status; //status values defined in pipeline.h
-    int hash;
-    unsigned int packet_length; //bytes in honeypot_command_packet
-    struct packet_info* next;
-    struct honeypot_command_packet * packet_start;
-};
-
-struct list_header{
-    int lock;
-    int length; //number of elements in list -> 0 if empty
-    struct packet_info* head;
-    struct packet_info* tail;
-};
 
 
 //requests a lock
@@ -138,3 +140,4 @@ struct packet_info* poll(struct list_header *list);
 //synchronization test
 void test_sync(struct list_header *list, struct packet_info *arr, int size);
 
+#endif

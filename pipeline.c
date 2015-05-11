@@ -2,11 +2,11 @@
 
 /* executes transfer from hashing list then hashing then transfer to checking stage*/
 void execute_hashing_stage(struct list_header * hashing_buffer_list, struct list_header * checking_buffer_list){
-
+  struct packet_info * current_packet;
   spin_lock(&hashing_buffer_list->lock);
   if(hashing_buffer_list->length>0){
-    struct packet_info * current_packet=hashing_buffer_list->head;
-    hashing_buffer_list->head=current->next;
+    current_packet=hashing_buffer_list->head;
+    hashing_buffer_list->head=current_packet->next;
     hashing_buffer_list->length--;
     unlock(&hashing_buffer_list->lock);
 
@@ -20,7 +20,7 @@ void execute_hashing_stage(struct list_header * hashing_buffer_list, struct list
   spin_lock(&current_packet->lock);
   if(current_packet->status==IN_HASHING_LIST){
     current_packet->status=BEING_HASHED;
-    current_packet->hash=djb2(current_packet->packet_start,current_packet->packet_length);
+    current_packet->hash=djb2((void *)current_packet->packet_start,current_packet->packet_length);
     current_packet->status=IN_CHECKING_LIST;
     unlock(&current_packet->lock);
   }
@@ -38,11 +38,11 @@ void execute_hashing_stage(struct list_header * hashing_buffer_list, struct list
 
 /* executes transfer from checking list then checking then transfer to garbage list stage*/
 void execute_checking_stage(struct list_header * checking_buffer_list, struct list_header * garbage_list){
-
+  struct packet_info * current_packet;
   spin_lock(&checking_buffer_list->lock);
   if(checking_buffer_list->length>0){
-      struct packet_info * current_packet=checking_buffer_list->head;
-    checking_buffer_list->head=current->next;
+    current_packet=checking_buffer_list->head;
+    checking_buffer_list->head=current_packet->next;
     checking_buffer_list->length--;
     unlock(&checking_buffer_list->lock);
   }
@@ -76,13 +76,14 @@ void execute_checking_stage(struct list_header * checking_buffer_list, struct li
     Assumes that only one core performs this job and is therefore 
     partially unsycronized.
 */
-void execute_garbage_list_transfer_stage(struct dev_net * net_dev, struct list_header * garbage_list, struct dma_ring_slot* ring_buffer, unsigned int rx_buff){ 
-  if(net_dev->rx_head%RING_SIZE < rx_buff%RING_SIZE){//if there is space in the ring buffer 
+void execute_garbage_list_transfer_stage(struct dev_net * net_dev, struct list_header * garbage_list, struct dma_ring_slot * ring_buffer, unsigned int rx_buff){ 
 
-    spin_lock(&garbage_list);
+  struct packet_info * current_packet;
+  if(net_dev->rx_head%RING_SIZE < rx_buff%RING_SIZE){//if there is space in the ring buffer 
+    spin_lock(&garbage_list->lock);
     if(garbage_list->length>0){//if there are packets in the garbage list
-      struct packet_info * current_packet=garbage_list->head;
-      garbage_list->head=current->next;
+      current_packet=garbage_list->head;
+      garbage_list->head=current_packet->next;
       garbage_list->length--;
       unlock(&garbage_list->lock);
     }
@@ -96,10 +97,10 @@ void execute_garbage_list_transfer_stage(struct dev_net * net_dev, struct list_h
     if(current_packet->status==IN_GARBAGE_LIST){ //double check that the packet is in the garbage list
       update_stats(current_packet);
       current_packet->status=IN_RING_BUFFER;
-      ring_buffer[net_dev->rx_head%RING_SIZE].dma_length=NET_MAXPKT;
-      ring_buffer[net_dev->rx_head%RING_SIZE].dma_base=current_packet->packet_start;
+      ring_buffer[net_dev->rx_head%RING_SIZE].dma_len=NET_MAXPKT;
+      ring_buffer[net_dev->rx_head%RING_SIZE].dma_base=virtual_to_physical(current_packet->packet_start);
       net_dev->rx_head++; //tells the network device that there is a free page to put a new packet into
-      unlock(&current_packet->lock)
+      unlock(&current_packet->lock);
       return;
     }
     else{
@@ -119,7 +120,7 @@ void execute_garbage_list_transfer_stage(struct dev_net * net_dev, struct list_h
 void * get_page_base(int dma_base){
 
   int total=sizeof(int)+sizeof(int)+sizeof(int)+sizeof(unsigned int)+sizeof(struct packet_info *);
-  returns (void *)(dma_base-total);
+  return (void *)(dma_base-total);
 }
 
 /*removes a packet from the ring buffer into hashing_buffer_list
@@ -129,14 +130,14 @@ returns new rx_buff if succesful and old one if unsucessful
 int execute_remove_from_ring_buffer(struct dma_ring_slot* ring_buffer, struct list_header * hashing_buffer_list, int rx_buff){
   struct dma_ring_slot *curr =&ring_buffer[rx_buff%RING_SIZE];
   
-  struct packet_info *current_packet=get_page_base((int)&physical_to_virtual(curr->dma_base));
+  struct packet_info *current_packet=get_page_base((int)physical_to_virtual(curr->dma_base));
 
   spin_lock(&current_packet->lock);
 
   if(current_packet->status==IN_RING_BUFFER){ //double check that the packet is in the ring buffer
-      current_packet->status=IN_HASING_LIST;
-      current_packet->length=curr->dma_length;
-      unlock(&current_packet->lock)
+      current_packet->status=IN_HASHING_LIST;
+      current_packet->packet_length=curr->dma_len;
+      unlock(&current_packet->lock);
       
     }
   else{

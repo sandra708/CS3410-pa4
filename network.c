@@ -11,47 +11,30 @@ volatile struct list_header *ring_buffer_list;//list of packets spaces in the ri
 volatile struct list_header *hashing_buffer_list;//list of packets waiting to be hashed
 volatile struct list_header *check_packet_buffer_list; //list of packets waiting to be checked for spam/vulnerable/evil/command
 
-volatile struct dma_ring_slot* ring_buffer;//pointer to the base of the ring buffer
+struct dma_ring_slot* ring_buffer;//pointer to the base of the ring buffer
 volatile struct dma_ring_slot* ring_buffer_pipeline;//pointer to the base of the ring buffer
 
 volatile unsigned int rx_buff;
-unsigned short secret_little_endian=0x1034;
 
-unsigned short add_spammer=0x0101;
-unsigned short add_evil_m=0x0201;
-unsigned short add_vulnerable=0x0301;
+volatile int total_vul=0;
+volatile int total_evil=0;
+volatile int total_spam=0;
 
-unsigned short del_spammer=0x0102;
-unsigned short del_evil=0x0202;
-unsigned short del_vulnerable=0x0302;
-
-unsigned short print_stats=0x0103;
-
-//int list_sizes=20;
+volatile int total_packets=0;
+volatile int time_start=0;
+volatile int last_print=0;
+volatile int bytes_handled=0;
 
 struct hashtable evil_hashtable;
 struct hashtable vulnerable_hashtable;
 struct hashtable spam_hashtable;
 
-int evil_hashtable_size=40;
-int vulnerable_hashtable_size=40;
-int spam_hashtable_size=40;
 
-int evil_bucket_size=3;
-int spam_bucket_size=3;
-int vulnerable_bucket_size=3;
 
-int total_vul=0;
-int total_evil=0;
-int total_spam=0;
 
-int total_packets=0;
-int time_start=0;
-int last_print=0;
-int bytes_handled=0;
 
-// Initializes the network driver, allocating the space for the ring buffer.
-/*
+/* Initializes the network driver, allocating the space for the ring buffer and dma slots
+    also creates eviil, vulnerable, and spam hashtables*/
 void network_init(){
 	int i,j;
 	for(i=0; i<16; i++){
@@ -62,7 +45,8 @@ void network_init(){
 			printf("Network Device is on..\n");
 
 			ring_buffer = (struct dma_ring_slot*) malloc(sizeof(struct dma_ring_slot) * RING_SIZE);//malloc ring buffer
-            net_dev->rx_base=virtual_to_physical(ring_buffer);
+            int  temp=(int)ring_buffer;
+            net_dev->rx_base=virtual_to_physical((void *)temp);
 			net_dev->rx_tail=0;
 			net_dev->rx_capacity=RING_SIZE;
 			net_dev->rx_head=0;
@@ -78,11 +62,12 @@ void network_init(){
     hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
     hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
     hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
-}*/
+}
 
-/*
+/* Initializes the network driver, allocates the space for the ring buffer
+    also creates eviil, vulnerable, and spam hashtables*/
 void network_init_pipeline(){
-    int i,j;
+    int i;
     for(i=0; i<16; i++){
         if(bootparams->devtable[i].type == DEV_TYPE_NETWORK){
             net_dev = physical_to_virtual(bootparams->devtable[i].start);//find the pointer to the network device 
@@ -90,79 +75,87 @@ void network_init_pipeline(){
             net_dev->data=1;
             printf("Network Device is on..\n");
             ring_buffer_pipeline = (struct dma_ring_slot*) malloc(sizeof(struct dma_ring_slot) * RING_SIZE);//malloc ring buffer
-            net_dev->rx_base=virtual_to_physical(ring_buffer_pipeline);
+            int temp=(int)ring_buffer_pipeline;
+            net_dev->rx_base=virtual_to_physical((void *)temp);
             net_dev->rx_tail=0;
-            net_dev->rx_capacity=RING_SIZE;
+            
             net_dev->rx_head=0;
             net_dev->rx_buff=0;
 
         }
     }
+
+    header_space_malloc();
+    printf("Space for linked list headers allocated...\n");
+    garbage_list_alloc(MAX_PACKETS);
+    printf("Packet space allocated..enough space for %d\n",MAX_PACKETS);
+    int spots= initial_dma_ring_slot_init();
+    printf("Succesfully added %d spots to the ring_buffer\n", spots);
+    net_dev->rx_capacity=spots;
+
     hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
     hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
     hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
-}*/
+}
 
 /* assumes you have malloced a garbage list and the ring buffer
     returns the number of ring slots it was able to succesfully
     allocate.
-*/ /*
+*/ 
 int initial_dma_ring_slot_init(){
-    spin_lock(&garbage_list->lock);
+    int  gl=(garbage_list->lock);
+    spin_lock(&gl);
     int i=0;
     while( i < RING_SIZE && garbage_list->length>0){
-        struct packet_info pckt=garbage_list->head;
-        spin_lock(&pckt->lock);
+        struct packet_info pckt=*garbage_list->head;
+        spin_lock(&pckt.lock);
         if(pckt.status==IN_GARBAGE_LIST){
             ring_buffer_pipeline[i].dma_len=NET_MAXPKT;
             pckt.status=IN_RING_BUFFER;
-            ring_buffer_pipeline[i].dma_base=pckt.packet_start;
-            unlock(&pckt->lock);
+            ring_buffer_pipeline[i].dma_base=virtual_to_physical(pckt.packet_start);
+            unlock(&pckt.lock);
             garbage_list->length--;
             garbage_list->head=pckt.next;
             i++;    
         }
         
         else{
-            unlock(&pckt->lock);
-            printf("Packet at %p has incorrect status for adding to ring buffer. ", pckt);
+            unlock(&pckt.lock);
+            printf("Packet at %p has incorrect status for adding to ring buffer. ", &pckt);
             printf("Only allocated %d ring slots, Sincerely, core %d\n", i, current_cpu_id());
             net_dev->rx_head=i;
             return i;
         }
     }
-    unlock(&garbage_list->lock);
+    unlock(&gl);
     printf("Succesfully allocated %d ring slots, Sincerely, core %d\n", RING_SIZE, current_cpu_id());
     net_dev->rx_head=RING_SIZE;
     return RING_SIZE;    
-}*/
+}
 
-/* allocates pages for linked list of packets assumes at least
-    space for 1 packet is needed
-    also finishes instantiating garbage_list
-*/
-
-/*
-void garbage_list_alloc(int num_packets){
+/* Allocates pages for linked list of num_packets packets assumes at least
+    space for 1 packet is needed.
+    Also finishes instantiating garbage_list with all of these packets*/
+void garbage_list_alloc(){
     struct packet_info * first=alloc_pages(1);;
     first->lock=0;
     first->status=IN_GARBAGE_LIST;
-    struct packet_info * old=firstpacket;
-    garbage_list->head=first
+    struct packet_info * old=first;
+    garbage_list->head=first;
 
    for (int i = 0; i < num_packets-1; i++){
-       struct packet_info * new=alloc_pages(1);
+       struct packet_info * pi=alloc_pages(1);
         pi->lock=0;
         pi->status=IN_GARBAGE_LIST;
         pi->next=old; //set the next packet as the old packet
-        old=new; //set self as the old packet
+        old=pi; //set self as the old packet
    }
 
    garbage_list->tail=old;
    garbage_list->length=num_packets;
-}*/
+}
 
-/*
+
 void header_space_malloc(){
     struct list_header *garbage_list=malloc(sizeof(struct list_header));
     garbage_list->lock=0;
@@ -170,13 +163,13 @@ void header_space_malloc(){
     struct list_header *ring_buffer_list=malloc(sizeof(struct list_header));
     ring_buffer_list->lock=0;
     ring_buffer_list->length=0;
-    struct list_header *hashing_list=malloc(sizeof(struct list_header));
+    struct list_header *hashing_buffer_list=malloc(sizeof(struct list_header));
     hashing_buffer_list->lock=0;
     hashing_buffer_list->lock=0;
-    struct list_header *check_packet_list=malloc(sizeof(struct list_header));
+    struct list_header *check_packet_buffer_list=malloc(sizeof(struct list_header));
     check_packet_buffer_list->lock=0;
     check_packet_buffer_list->length=0;
-}*/
+}
 
 void network_start_receive(){
         net_dev->cmd=NET_SET_RECEIVE;//enable receive 
@@ -186,31 +179,15 @@ void network_start_receive(){
         last_print=time_start;
 }
 
-// Starts receiving packets!
-/*
-void network_start_receive_pipeline(){
-		net_dev->cmd=NET_SET_RECEIVE;//enable receive 
-		net_dev->data=1;
-        time_start=current_cpu_cycles();
-        last_print=time_start;
-        printf("Network receive enabled..\n");
-
-        header_space_malloc();
-        printf("Space for linked list headers allocated...\n");
-
-        garbage_list_alloc(MAX_PACKETS);
-        printf("Packet space allocated..space for %d\n",MAX_PACKETS);
-}
-
 void network_set_interrupts(int opt){
 	net_dev->cmd=NET_SET_INTERRUPTS;//enable interuppts
 	net_dev->data=1;
-}*/
+}
 
 /*  Determines if the packet is a command packet
     returns 0 if not command packet
     returns 1 if command packet*/
-int is_command(struct honeypot_command_packet*  packet ){
+int is_command(struct honeypot_command_packet*  packet){
     if(packet->secret_big_endian==secret_little_endian)
         return 1;
     else
@@ -333,7 +310,7 @@ void execute_command(struct honeypot_command_packet * packet, int n){
 }
 
 // Continually polls for data on the ring buffer until the
-/*
+
 void network_poll(){
 
     printf("polling..\n" );
@@ -349,14 +326,70 @@ void network_poll(){
             net_dev->rx_tail++;   
         }
     }
-}*/
+}
 
 // Called when a network interrupt occurs.
 void network_trap(){
     all_print();
 }
 
+void execute_command_pipeline(struct honeypot_command_packet * packet){
+    unsigned short command = packet->cmd_big_endian;
+    unsigned int data =packet->data_big_endian;
 
+    if(command==print_stats){
+        //network_trap();
+        all_print();
+    }
+    else if(command==add_spammer){
+        hashtable_put(&spam_hashtable,data,spam_bucket_size);
+    }
+    else if(command==add_vulnerable){
+        hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
+    }
+    else if(command==add_evil_m){
+        hashtable_put(&evil_hashtable,change_end(data),evil_bucket_size);
+    }
+    else if(command==del_spammer){
+        hashtable_remove(&spam_hashtable,data);
+    }
+    else if(command==del_vulnerable){
+        hashtable_remove(&vulnerable_hashtable,data);
+    }
+    else if(command==del_evil){
+        hashtable_remove(&evil_hashtable,change_end(data));
+    }
+
+}
+
+/* Checks if the packet is evil, vulnerable, or spam
+    Returns the correct code defined above and puts the packet info into
+    the correct hashtable if necessary.*/
+int check_packet_pipeline(struct honeypot_command_packet * packet, int hash){
+    unsigned int src_addr=packet->headers.ip_source_address_big_endian;
+    unsigned int des_addr=packet->headers.udp_dest_port_big_endian<<16;
+    int code=0;
+    if(src_addr==hashtable_get(&spam_hashtable,src_addr)){
+        total_spam++;
+        code+=is_spammer;
+    }
+    if(des_addr==hashtable_get(&vulnerable_hashtable,des_addr)){
+        total_vul++;
+        code+=is_vulnerable;
+    }
+    if(hash==hashtable_get(&evil_hashtable,hash) ){
+        total_evil++;
+        code+=is_evil;
+
+    }
+    return code;
+}
+
+/*Updates all statistics according to that packet*/
+void update_stats(struct packet_info *current_packet){
+    total_packets++;
+    bytes_handled+=current_packet->packet_length;
+}
 
 void spin_lock(int* m){
     asm(".set mips2");
