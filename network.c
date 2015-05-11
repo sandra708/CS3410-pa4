@@ -429,9 +429,9 @@ void core_start(int core_id){
         }
     }
     else if(core_id==2){
+        //add_first_packet_hashbuffer_list(ring_buffer_pipeline, hashing_buffer_list, rx_buff,net_dev->rx_head);
         while(1){
             //aquire lock for rx_buff 
-            
             rx_buff=execute_remove_from_ring_buffer(ring_buffer_pipeline, hashing_buffer_list, rx_buff,net_dev->rx_head);
             //printf("buff%d head %d tail %d  ?\n",rx_buff,net_dev->rx_head,net_dev->rx_tail );
         }
@@ -442,9 +442,9 @@ void core_start(int core_id){
 
         }
     }
-    else{
+    else if (core_id==4){
         while(1){
-            //execute_checking_stage(check_packet_buffer_list, garbage_list);
+            execute_checking_stage(check_packet_buffer_list, garbage_list);
         }
     }
 }
