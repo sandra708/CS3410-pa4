@@ -1,12 +1,12 @@
 
 #include "kernel.h"
 
-#define IN_HASHING_LIST 20
-#define BEING_HASHED 25
-#define IN_CHECKING_LIST 30
-#define BEING_CHECKED 35
-#define IN_GARBAGE_LIST 40
-#define IN_RING_BUFFER 50
+#define IN_HASHING_LIST 0
+#define BEING_HASHED 0
+#define IN_CHECKING_LIST 0
+#define BEING_CHECKED 0
+#define IN_GARBAGE_LIST 0
+#define IN_RING_BUFFER 0
 
 /* executes transfer from hashing list then hashing then transfer to checking stage*/
 void execute_hashing_stage(volatile struct list_header * hashing_list, volatile struct list_header * checking_list);

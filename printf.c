@@ -54,6 +54,8 @@
 #endif
 #endif
 
+volatile int print_lock;
+
 #ifdef   USE_INTERNALS
 #include "91x_lib.h"
 #include "common.h"
@@ -545,7 +547,7 @@ int main (void)
 #endif
 
 #include "kernel.h"
-
+/*
 int printf_u (const char *format, ...)
 {
   int *varg = (int *) (char *) (&format);
@@ -561,7 +563,7 @@ int printf_i (const char *format, ...)
   return ret;
 }
 
-/*
+
 static int printf_mutex = 0;
 int printf_m (const char *format, ...)
 {
@@ -595,13 +597,17 @@ int printf (const char *format, ...)
 }
 
 */
-
+void intst(){
+print_lock=0;
+}
 // default printf is the same as printf_i, for now
 int printf (const char *format, ...)
 {
+   spin_lock(&print_lock);
   int *varg = (int *) (char *) (&format);
   int level = intr_disable();
   int ret = print (0, varg);
   intr_restore(level);
+  unlock(&print_lock);
   return ret;
 }

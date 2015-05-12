@@ -26,6 +26,7 @@ volatile int last_print=0;
 volatile int bytes_handled=0;
 volatile int * rx_buff_lock;
 
+
 struct hashtable evil_hashtable;
 struct hashtable vulnerable_hashtable;
 struct hashtable spam_hashtable;
@@ -72,10 +73,10 @@ void header_space_malloc(){
     //garbage_list->lock=(int *)malloc(sizeof(int *));
     //garbage_list->lock[0]=0;
     //garbage_list->pa
-    printf("header_space_malloc:\n");
-      printf("garbage_list %p\n",garbage_list);
-      printf("garbage_list length start %p\n",&garbage_list->length);
-      printf("lock %p\n",&garbage_list->lock);
+    //printf("header_space_malloc:\n");
+     // printf("garbage_list %p\n",garbage_list);
+     // printf("garbage_list length start %p\n",&garbage_list->length);
+    //  printf("lock %p\n",&garbage_list->lock);
     ring_buffer_list=malloc(sizeof(struct list_header));
     ring_buffer_list->lock=0;
     ring_buffer_list->length=0;
@@ -105,7 +106,7 @@ void garbage_list_alloc(int num_packets){
         me->packet_length=i;//set to 0 later
         before->prev=me; //packet before me has me as its previous
         me->next=before; //my next is the packet before me
-        //printf("i %d self %p next %p pktstart %p\n",i,me,before,&me->packet_start );
+        printf("i %d self %p next %p pktstart %p\n",i,me,before,&me->packet_start );
         before=me; 
     }
 
@@ -177,7 +178,7 @@ void network_init_pipeline(){
             net_dev->rx_tail=0;
             
             net_dev->rx_head=0;
-            rx_buff=0;
+            rx_buff=3;
 
         }
     }
@@ -425,25 +426,28 @@ void core_start(int core_id){
 
         while(1){
             //printf("executing glts core:%d\n",current_cpu_id() );
-            //execute_garbage_list_transfer_stage(net_dev, garbage_list, ring_buffer_pipeline, rx_buff);
+            execute_garbage_list_transfer_stage(net_dev, garbage_list, ring_buffer_pipeline, rx_buff);
         }
     }
     else if(core_id==2){
+        //busy_wait(0.1);
         //add_first_packet_hashbuffer_list(ring_buffer_pipeline, hashing_buffer_list, rx_buff,net_dev->rx_head);
         while(1){
             //aquire lock for rx_buff 
             rx_buff=execute_remove_from_ring_buffer(ring_buffer_pipeline, hashing_buffer_list, rx_buff,net_dev->rx_head);
-            //printf("buff%d head %d tail %d  ?\n",rx_buff,net_dev->rx_head,net_dev->rx_tail );
+//printf("rbl %d %d %d |%d <%d <%d \n",hashing_buffer_list->length,check_packet_buffer_list->length,garbage_list->length,net_dev->rx_head,net_dev->rx_tail,rx_buff );
         }
     }
     else if (core_id==3){
         while(1){
+            busy_wait(0.2);
             execute_hashing_stage(hashing_buffer_list, check_packet_buffer_list);
 
         }
     }
     else if (core_id==4){
         while(1){
+            busy_wait(0.4);
             execute_checking_stage(check_packet_buffer_list, garbage_list);
         }
     }

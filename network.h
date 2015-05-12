@@ -4,7 +4,7 @@
 
 //#include <stdio.h>
 
-#define MAX_PACKETS 18
+#define MAX_PACKETS 100
 #define RING_SIZE 16
 #define secret_little_endian 0x1034
 
