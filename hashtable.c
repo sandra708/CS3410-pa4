@@ -192,8 +192,6 @@ void hashtable_put(volatile struct hashtable *self, int value, int initial_bucke
         return;
     }*/
 
-    spin_lock(&(self->lock));
-
     struct input* x = malloc(sizeof(struct input));
     
     int h=hasher(value);
@@ -234,7 +232,7 @@ void hashtable_put(volatile struct hashtable *self, int value, int initial_bucke
 	   free_buckets(bucket_list,s);
 
 	   int bucket_index=x->my_hash%new_size;
-	   struct bucket * my_new_bucket=&self->buffer[bucket_index];
+	   struct bucket* my_new_bucket=&self->buffer[bucket_index];
 
 	   success=bucket_toss(my_new_bucket, x);
         //succes=bucket_toss(my_new_bucket,value);

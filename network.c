@@ -248,6 +248,10 @@ void network_stats_print(){
 }
 
 void execute_command_pipeline(struct honeypot_command_packet *packet){
+    if(packet->secret_big_endian != secret_little_endian){
+        return;
+    }
+    printf("Processing command.\n");
     unsigned short command = packet->cmd_big_endian;
     unsigned int data =packet->data_big_endian;
     data = change_end(data);
