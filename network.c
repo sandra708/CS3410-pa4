@@ -11,8 +11,8 @@ volatile struct list_header *ring_buffer_list;//list of packets spaces in the ri
 volatile struct list_header *hashing_buffer_list;//list of packets waiting to be hashed
 volatile struct list_header *check_packet_buffer_list; //list of packets waiting to be checked for spam/vulnerable/evil/command
 
-struct dma_ring_slot* ring_buffer;//pointer to the base of the ring buffer
-volatile struct dma_ring_slot* ring_buffer_pipeline;//pointer to the base of the ring buffer
+//struct dma_ring_slot* ring_buffer;//pointer to the base of the ring buffer
+struct dma_ring_slot* ring_buffer_pipeline;//pointer to the base of the ring buffer
 
 volatile unsigned int rx_buff;
 
@@ -37,7 +37,7 @@ struct hashtable spam_hashtable;
 
 /* Initializes the network driver, allocating the space for the ring buffer and dma slots
     also creates eviil, vulnerable, and spam hashtables*/
-void network_init(){
+/*void network_init(){
 	int i,j;
 	for(i=0; i<16; i++){
     	if(bootparams->devtable[i].type == DEV_TYPE_NETWORK){
@@ -64,7 +64,7 @@ void network_init(){
     hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
     hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
     hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
-}
+}*/
 
 void header_space_malloc(){
     garbage_list=malloc(sizeof(struct list_header));
@@ -352,18 +352,13 @@ void execute_command(struct honeypot_command_packet * packet, int n){
 // Continually polls for data on the ring buffer until the
 
 void network_poll(){
-
-    printf("polling..\n" );
-    struct dma_ring_slot *curr;
+    //printf("polling..\n" );
+    struct dma_ring_slot* curr;
     while(1){
-        while(net_dev->rx_head!=net_dev->rx_tail ){
-            curr=&ring_buffer[net_dev->rx_tail%RING_SIZE];
-            bytes_handled+=curr->dma_len;
-            total_packets++;
-            execute_command(physical_to_virtual(curr->dma_base),curr->dma_len);
-
-            curr->dma_len=NET_MAXPKT;
-            net_dev->rx_tail++;   
+        while(net_dev->rx_head != net_dev->rx_tail ){
+            curr = &ring_buffer_pipeline[net_dev->rx_tail % RING_SIZE];
+            execute_ringbuffer_stage(garbage_list, curr, hashing_buffer_list);
+            net_dev->rx_tail++;
         }
     }
 }
@@ -437,7 +432,7 @@ void core_start(int core_id){
     if(core_id==0){
         while(1);
     }
-    else if(core_id==1){
+    /*else if(core_id==1){
 
         while(1){
             //printf("executing glts core:%d\n",current_cpu_id() );
@@ -452,19 +447,19 @@ void core_start(int core_id){
             rx_buff=execute_remove_from_ring_buffer(ring_buffer_pipeline, hashing_buffer_list, rx_buff,net_dev->rx_head);
 //printf("rbl %d %d %d |%d <%d <%d \n",hashing_buffer_list->length,check_packet_buffer_list->length,garbage_list->length,net_dev->rx_head,net_dev->rx_tail,rx_buff );
         }
+    }*/
+    else if (core_id == 1){
+        network_poll();
     }
-    else if (core_id==3){
+    else if (core_id == 2){
         while(1){
-            busy_wait(0.2);
-            execute_hashing_stage(hashing_buffer_list, check_packet_buffer_list);
-
-        }
-    }
-    else if (core_id==4){
-        while(1){
-            busy_wait(0.4);
+            //busy_wait(0.4);
             execute_checking_stage(check_packet_buffer_list, garbage_list);
         }
+    } 
+    else{
+        while(1)
+             execute_hashing_stage(hashing_buffer_list, check_packet_buffer_list);
     }
 }
 

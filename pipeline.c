@@ -24,6 +24,25 @@ void execute_checking_stage(volatile struct list_header* checking_buffer_list,vo
   append_list(garbage_list, current_packet);
 }
 
+//gets the page base from the vaddr of the honeypot_command_packet pointer 
+void * get_page_base(void* dma_base_vaddr){
+  //        int lock   + int status+ int hash +unsign int packet_len+    struct info * next      +    struct info * prev
+  int total=sizeof(struct packet_info);
+  return dma_base_vaddr-total;
+}
+
+void execute_ringbuffer_stage(volatile struct list_header* garbage_list, volatile struct dma_ring_slot* ring_buffer, volatile struct list_header * hashing_buffer_list){ 
+  struct packet_info* current_packet = get_page_base(physical_to_virtual(ring_buffer->dma_base));
+  current_packet->packet_length = ring_buffer->dma_len;
+  current_packet->status = IN_HASHING_LIST;
+  append_list(hashing_buffer_list, current_packet);
+
+  struct packet_info* next_packet = poll(garbage_list);
+  next_packet->status = IN_RING_BUFFER;
+  ring_buffer->dma_base = virtual_to_physical(&next_packet->packet_start);
+  ring_buffer->dma_len = NET_MAXPKT;
+}
+
 // executes transfer from garbage list to ring buffer list stage
  //   Assumes that only one core performs this job and is therefore 
  //   partially unsycronized.
@@ -75,12 +94,7 @@ void execute_garbage_list_transfer_stage(volatile struct dev_net * net_dev,volat
   }
 }
 
-//gets the page base from the vaddr of the honeypot_command_packet pointer 
-void * get_page_base(void* dma_base_vaddr){
-  //        int lock   + int status+ int hash +unsign int packet_len+    struct info * next      +    struct info * prev
-  int total=sizeof(int)+sizeof(int)+sizeof(int)+sizeof(unsigned int)+sizeof(struct packet_info *)+sizeof(struct packet_info *);
-  return dma_base_vaddr-total;
-}
+
 
 //removes a packet from the ring buffer into hashing_buffer_list
 //assumes that there is a packet to remove

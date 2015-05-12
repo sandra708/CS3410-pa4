@@ -14,6 +14,9 @@ void execute_hashing_stage(volatile struct list_header * hashing_list, volatile 
 /* executes transfer from checking list then checking then transfer to garbage list stage*/
 void execute_checking_stage(volatile struct list_header * checking_list,volatile  struct list_header * garbage_list);
 
+//ring_buffer is the specific slot for the packet we are removing to process
+void execute_ringbuffer_stage(volatile struct list_header* garbage_list, volatile struct dma_ring_slot* ring_buffer, volatile struct list_header * hashing_buffer_list);
+
 /* executes transfer from garbage list to ring buffer */
 void execute_garbage_list_transfer_stage(volatile struct dev_net * net_dev,volatile  struct list_header * garbage_list,volatile  struct dma_ring_slot * ring_buffer, unsigned int rx_buff);
 
