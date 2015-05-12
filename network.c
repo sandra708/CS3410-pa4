@@ -52,7 +52,7 @@ void garbage_list_alloc(int num_packets){
         me->packet_length=i;//set to 0 later
         before->prev=me; //packet before me has me as its previous
         me->next=before; //my next is the packet before me
-        printf("i %d self %x v %p\n",i,virtual_to_physical(me),me );
+        //printf("i %d self %x v %p\n",i,virtual_to_physical(me),me );
         before=me; 
     }
 
@@ -75,7 +75,7 @@ int initial_dma_ring_slot_init(){
 
         struct packet_info* next = poll(garbage_list); //if we allocated less than 16 packets initially, we won't ever be able to process anything
         next->status = IN_RING_BUFFER;
-        printf("Put in rb %d th ring slot. %x , %p ,", i,virtual_to_physical(next),next);
+        //printf("Put in rb %d th ring slot. %x , %p ,", i,virtual_to_physical(next),next);
         ring_buffer_pipeline[i].dma_base=virtual_to_physical(&next->packet_start);
         i++;
     }
@@ -91,7 +91,7 @@ void network_init_pipeline(){
             net_dev = physical_to_virtual(bootparams->devtable[i].start);//find the pointer to the network device 
             net_dev->cmd=NET_SET_POWER;//turn on device
             net_dev->data=1;
-            printf("Network Device is on..\n");
+            //printf("Network Device is on..\n");
             ring_buffer_pipeline = (struct dma_ring_slot*) malloc(sizeof(struct dma_ring_slot) * RING_SIZE);//malloc ring buffer
             int temp=(int)ring_buffer_pipeline;
             net_dev->rx_base=virtual_to_physical((void*)temp);
@@ -229,9 +229,10 @@ void network_poll(){
 
     //printf("polling..\n" );
    volatile struct dma_ring_slot *curr;
-
+   network_start_receive();
     while(1){
-        while(net_dev->rx_head!=net_dev->rx_tail ){
+        while(net_dev->rx_head != net_dev->rx_tail ){
+            //printf("Removing a packet.\n");
             curr=&ring_buffer_pipeline[net_dev->rx_tail%RING_SIZE];
             execute_ringbuffer_stage(garbage_list, curr, hashing_buffer_list);
             net_dev->rx_tail++;   
@@ -258,37 +259,31 @@ void execute_command_pipeline(struct honeypot_command_packet *packet){
         all_print();
     }
     else if(command==add_spammer){
-       // hashtable_put(&spam_hashtable,data,spam_bucket_size);
-        printf("i\n");
+        hashtable_put(&spam_hashtable,data,spam_bucket_size);
         spam_print();
     }
     else if(command==add_vulnerable){
-        //hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
-                printf("i\n");
+        hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
 
         vulnerable_print();
     }
     else if(command==add_evil_m){
-        //hashtable_put(&evil_hashtable,change_end(data),evil_bucket_size);
-                printf("i\n");
+        hashtable_put(&evil_hashtable,change_end(data),evil_bucket_size);
 
         evil_print();
     }
     else if(command==del_spammer){
-       // hashtable_remove(&spam_hashtable,data);
-                printf("i\n");
+       hashtable_remove(&spam_hashtable,data);
 
         spam_print();
     }
     else if(command==del_vulnerable){
-       // hashtable_remove(&vulnerable_hashtable,data);
-                printf("i\n");
+       hashtable_remove(&vulnerable_hashtable,data);
 
         vulnerable_print();
     }
     else if(command==del_evil){
-      //  hashtable_remove(&evil_hashtable,change_end(data));
-                printf("i\n");
+      hashtable_remove(&evil_hashtable,change_end(data));
 
         evil_print();
     }
@@ -320,11 +315,9 @@ void core_start(int core_id){
         while(1);
     }
     else if (core_id == 1){
-        busy_wait(1);
         network_poll();
     }
     else if (core_id == 2){
-        busy_wait(1);
         while(1){
             execute_checking_stage(check_packet_buffer_list, garbage_list, stats);
         }

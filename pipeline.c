@@ -3,9 +3,7 @@
 
 void execute_hashing_stage(volatile struct list_header* hashing_buffer_list, volatile struct list_header* checking_buffer_list){
   struct packet_info* current_packet = poll(hashing_buffer_list);
-  if(current_packet==(void*)0xc0217000){
-    printf("%p %p %x %x\n",current_packet,&current_packet->packet_start, current_packet->packet_start.cmd_big_endian,current_packet->packet_start.data_big_endian);
-  }
+
   current_packet->status=BEING_HASHED;
 
   current_packet->hash=djb2((unsigned char *)&current_packet->packet_start,current_packet->packet_length);
@@ -15,12 +13,13 @@ void execute_hashing_stage(volatile struct list_header* hashing_buffer_list, vol
 }
 
 void execute_checking_stage(volatile struct list_header* checking_buffer_list,volatile  struct list_header* garbage_list, volatile struct global_stats* stats){
+  //printf("Checking list: %p, Garbage list: %p, Stats: %p \n", checking_buffer_list, garbage_list, stats);
   struct packet_info* current_packet = poll(checking_buffer_list);
   current_packet->status=BEING_CHECKED;
   //checks if it is a command packet and executes this command
-  
+  printf("Executing command pipeline.\n");
   execute_command_pipeline(&current_packet->packet_start);
-
+  printf("Checking packet.\n");
   //checks if packet is evil/vulnerable/spam and increments hashtable
   int code = check_packet_pipeline(&current_packet->packet_start, current_packet->hash);
   //updates stats
