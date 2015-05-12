@@ -252,7 +252,8 @@ void network_stats_print(){
 
 void execute_command_pipeline(struct honeypot_command_packet *packet){
     unsigned short command = packet->cmd_big_endian;
-    //unsigned int data =packet->data_big_endian;
+    unsigned int data =packet->data_big_endian;
+    change_end(data);
     //printf("%x %p\n",command,packet );
     if(command==print_stats){
         //network_trap();
@@ -268,7 +269,7 @@ void execute_command_pipeline(struct honeypot_command_packet *packet){
         vulnerable_print();
     }
     else if(command==add_evil_m){
-        hashtable_put(&evil_hashtable,change_end(data),evil_bucket_size);
+        hashtable_put(&evil_hashtable,data,evil_bucket_size);
 
         evil_print();
     }
@@ -283,7 +284,7 @@ void execute_command_pipeline(struct honeypot_command_packet *packet){
         vulnerable_print();
     }
     else if(command==del_evil){
-      hashtable_remove(&evil_hashtable,change_end(data));
+      hashtable_remove(&evil_hashtable,data);
 
         evil_print();
     }
