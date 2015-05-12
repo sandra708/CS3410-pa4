@@ -182,7 +182,7 @@ void free_buckets(struct bucket * self,int len){
     free(self);
 }
 
-void hashtable_put( volatile struct hashtable *self, int value, int initial_bucket_size){  
+void hashtable_put(volatile struct hashtable *self, int value, int initial_bucket_size){
 
     if(hashtable_get(self,value)==value){
         //printf("Already in bucket: %d\n",value);
@@ -267,7 +267,7 @@ void hashtable_elements_print(volatile struct  hashtable *self){
     spin_lock(&(self->lock));
     printf("Value\tCount\n");
     int i,j,k;
-    struct input * temp;
+    struct input* temp;
     for(i=0;i<self->size;i++){
         k=self->buffer[i].num_inputs;
         temp=self->buffer[i].bucket_buffer;
@@ -302,6 +302,7 @@ int bucket_remove(struct bucket *self, int my_key){
 
 int hashtable_remove(volatile struct hashtable *self, int key){
     spin_lock(&(self->lock));
+    printf("Removing element from hashtable.\n");
     unsigned int h=hasher(key);
     struct bucket *buf=self->buffer;
     unsigned int s=self->size;
