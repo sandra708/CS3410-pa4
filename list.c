@@ -1,7 +1,7 @@
 #include "kernel.h"
 
 //requests a lock
-void append_list(struct list_header *list, struct packet_info *packet){
+void append_list(volatile struct list_header *list, struct packet_info *packet){
     spin_lock(&(list->lock));
     if(list->length == 0){
         list->head = packet;
@@ -16,19 +16,27 @@ void append_list(struct list_header *list, struct packet_info *packet){
 }
 
 //requests lock - remains in the method until list has an element to remove
-struct packet_info* poll(struct list_header *list){
+struct packet_info* poll(volatile struct list_header* list){
     while(1){
         spin_lock(&(list->lock));
-        if(list->length) break; //list is non-empty
+        if(list->length){
+            if(current_cpu_id() == 0)printf("%d\n", list->length); 
+           break; //list is non-empty 
+        } 
         unlock(&(list->lock));
         
         busy_wait_cycles(0x00001000); //random value - apply testing
     }
-    
+    if(current_cpu_id() == 0)printf("L");
     struct packet_info* poll = list->head;
+    if(current_cpu_id() == 0)printf("p");
+    if(current_cpu_id() == 0)printf("%p\n", poll); 
     struct packet_info* next = poll->next;
+    if(current_cpu_id() == 0)printf("n");
     list->head = next;
+    if(current_cpu_id() == 0)printf("h");
     (list->length)--;
+    if(current_cpu_id() == 0)printf("-\n");
     
     unlock(&(list->lock));
     
@@ -37,7 +45,7 @@ struct packet_info* poll(struct list_header *list){
 
 //polls and returns the head of the list if list nonempty
 //otherwise, returns NULL
-struct packet_info* get(struct list_header *list){
+struct packet_info* get(volatile struct list_header *list){
     spin_lock(&(list->lock));
     struct packet_info* val;
     if(list->length){

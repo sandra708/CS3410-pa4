@@ -1,11 +1,8 @@
 #include "kernel.h"
-//#include "network.h"
+
 struct bootparams *bootparams;
 
 int debug = 1; // change to 0 to stop seeing so many messages
-
-struct list_header *tester;
-struct packet_info *test_arr;
 
 void shutdown() {
   puts("Shutting down...");
@@ -71,8 +68,6 @@ void interrupt_handler(int cause)
 
 }
 
-
-
 void trap_handler(struct mips_core_data *state, unsigned int status, unsigned int cause)
 {
   if (debug) printf("trap_handler: status=0x%08x cause=0x%08x on core %d\n", status, cause, current_cpu_id());
@@ -127,31 +122,22 @@ void __boot() {
 
   if (current_cpu_id() == 0) {
     bootparams = physical_to_virtual(0x00000000);
+
     console_init();
-    printf("Welcome to my kernel!\n");
-    printf("Running on a %d-way multi-core machine\n", current_cpu_exists());
+
     mem_init();
     trap_init();
+
     keyboard_init();
-    network_init_pipeline();
-    network_start_receive();
-    //for (int i = 0; i < 32; i++)
-    //  printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");    
+    set_cpu_enable(0xFFFFFFFF);
 
+  network_init_pipeline();
+  network_start_receive();
+}
 
-    // turn on all other cores
-      set_cpu_enable(0xFFFFFFFF);
+core_start(current_cpu_id());
 
-    
-    //for (int i = 0; i < 32; i++)
-    //printf("CPU[%d] is %s\n", i, (current_cpu_enable() & (1<<i)) ? "on" : "off");
-  }
-  
-  core_start(current_cpu_id());
-
-  while(1);
-  
-
+  while (1) ;
 
   shutdown();
 }

@@ -235,8 +235,6 @@ static void malloc_init()
 
 void *malloc(unsigned int size)
 {
-
-
   // try small allocation first
   for (int i = 0; i < NUM_BLOCKSIZES; i++) {
     if (size <= smallblock[i].blocksize) {
@@ -255,12 +253,12 @@ void *malloc(unsigned int size)
 	    // then use that block
 	    bitmap_set(elt->bitmap, j, 1);
 	    void *pointer = (void *)elt + j * elt->blocksize;
-      //printf("allocatin block %p\n",pointer);
 	    return pointer;
 
 	  }
 	}
       }
+
       // there were no existing pages with free blocks
       void *p = alloc_pages(1);
       // first part of page is for accounting
@@ -276,7 +274,6 @@ void *malloc(unsigned int size)
       // remainder of block is the actual data
       bitmap_set(elt->bitmap, 1, 1);
       void *pointer = p + 1 * elt->blocksize;
-      //printf("allocatin page %p\n",pointer);
       return pointer;
     }
   }

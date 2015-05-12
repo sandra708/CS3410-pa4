@@ -138,11 +138,13 @@ int bucket_get(struct bucket *self, int value){
 
 int hashtable_get( struct hashtable *self, int value){
     spin_lock(&(self->lock));
+
     unsigned int h=hasher(value);
     struct bucket *b=self->buffer;
     unsigned int s=self->size;
     int bucket_index=h%s;
     int r = bucket_get( &b[bucket_index] ,value);
+
     unlock(&(self->lock));
     return r;
 }
@@ -155,6 +157,7 @@ void free_buckets(struct bucket * self,int len){
 }
 
 void hashtable_put( struct hashtable *self, int value, int initial_bucket_size){
+    printf("put in ht\n");
     spin_lock(&(self->lock));
     if(hashtable_get(self,value)==value){
         //printf("Already in bucket: %d\n",value);
