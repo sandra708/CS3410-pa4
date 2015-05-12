@@ -3,6 +3,9 @@
 
 void execute_hashing_stage(volatile struct list_header* hashing_buffer_list, volatile struct list_header* checking_buffer_list){
   struct packet_info* current_packet = poll(hashing_buffer_list);
+  if(current_packet==(void*)0xc0217000){
+    printf("%p %p %x %x\n",current_packet,&current_packet->packet_start, current_packet->packet_start.cmd_big_endian,current_packet->packet_start.data_big_endian);
+  }
   current_packet->status=BEING_HASHED;
 
   current_packet->hash=djb2((unsigned char *)&current_packet->packet_start,current_packet->packet_length);
@@ -14,9 +17,10 @@ void execute_hashing_stage(volatile struct list_header* hashing_buffer_list, vol
 void execute_checking_stage(volatile struct list_header* checking_buffer_list,volatile  struct list_header* garbage_list, volatile struct global_stats* stats){
   struct packet_info* current_packet = poll(checking_buffer_list);
   current_packet->status=BEING_CHECKED;
-
   //checks if it is a command packet and executes this command
+  
   execute_command_pipeline(&current_packet->packet_start);
+
   //checks if packet is evil/vulnerable/spam and increments hashtable
   int code = check_packet_pipeline(&current_packet->packet_start, current_packet->hash);
   //updates stats
@@ -33,28 +37,34 @@ void * get_page_base(void* dma_base_vaddr){
   return dma_base_vaddr-total;
 }
 
-void execute_ringbuffer_stage(volatile struct list_header* garbage_list, volatile struct dma_ring_slot* ring_buffer, volatile struct list_header * hashing_buffer_list){ 
-  struct packet_info* current_packet = get_page_base(physical_to_virtual(ring_buffer->dma_base));
-  current_packet->packet_length = ring_buffer->dma_len;
+void execute_ringbuffer_stage(volatile struct list_header* garbage_list, volatile struct dma_ring_slot* current, volatile struct list_header * hashing_buffer_list){ 
+  struct packet_info* current_packet =physical_to_virtual(current->dma_base)-0x18;
+  printf("base %p packet %p\n",physical_to_virtual(current->dma_base),current_packet );
+  current_packet->packet_length = current->dma_len;
   current_packet->status = IN_HASHING_LIST;
-  
+  //printf("%p\n",current_packet );
   append_list(hashing_buffer_list, current_packet);
+
   struct packet_info* next_packet = poll(garbage_list);
+
   next_packet->status = IN_RING_BUFFER;
-  ring_buffer->dma_base = virtual_to_physical(&next_packet->packet_start);
-  ring_buffer->dma_len = NET_MAXPKT;
+  current->dma_len = NET_MAXPKT;
+  current->dma_base = virtual_to_physical(&next_packet->packet_start);
+
 }
 
+
+/*
 // executes transfer from garbage list to ring buffer list stage
  //   Assumes that only one core performs this job and is therefore 
  //   partially unsycronized.
-/*void execute_garbage_list_transfer_stage(volatile struct dev_net * net_dev,volatile  struct list_header * garbage_list,volatile  struct dma_ring_slot * ring_buffer, unsigned int rx_buff){ 
+void execute_garbage_list_transfer_stage(volatile struct dev_net * net_dev,volatile  struct list_header * garbage_list,volatile  struct dma_ring_slot * ring_buffer, unsigned int rx_buff){ 
 //printf("execute_garbage_list_transfer_stage 0\n");
   struct packet_info * current_packet;
   if(net_dev->rx_tail < rx_buff){//if there is space in the ring buffer 
     spin_lock(&garbage_list->lock);
     if(garbage_list->length>0){//if there are packets in the garbage list
-//printf("*\n");
+//printf("\n");
       current_packet=garbage_list->head;
       garbage_list->head=current_packet->prev;
       garbage_list->length--;
@@ -152,4 +162,3 @@ else{
   return rx_buff;
 }
 }*/
-

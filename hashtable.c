@@ -87,7 +87,7 @@ void bucket_create(struct bucket *self, int my_bucket_size){
 
 
 /* initializes the hashtable*/
-void hashtable_create( struct hashtable *self, int hashtable_size, int my_bucket_size){
+void hashtable_create(volatile struct hashtable *self, int hashtable_size, int my_bucket_size){
     spin_lock(&(self->lock));
     self->buffer = (struct bucket*)malloc(hashtable_size * sizeof(struct bucket));
     self->size = hashtable_size;
@@ -112,7 +112,7 @@ void input_create(struct input *self, int value, int count, int my_hash){
     self->my_hash=my_hash;
 }
 
-void rehash( struct hashtable *self,struct input *x){
+void rehash(volatile struct hashtable *self,struct input *x){
     unsigned int h=x->my_hash;
     unsigned int s=self->size;
     int bucket_index=h%s;
@@ -136,13 +136,15 @@ int bucket_get(struct bucket* self, int value){
     return -1;
 }
 
-int hashtable_get( struct hashtable *self, int value){
+int hashtable_get(volatile struct hashtable *self, int value){
     spin_lock(&(self->lock));
+
     unsigned int h=hasher(value);
     struct bucket *b=self->buffer;
     unsigned int s=self->size;
     int bucket_index=h%s;
     int r = bucket_get( &b[bucket_index] ,value);
+
     unlock(&(self->lock));
     return r;
 }
@@ -159,7 +161,7 @@ int bucket_incr(struct bucket *self, int value){
     return 0;
 }
 
-int hashtable_increment(struct hashtable *self, int value){
+int hashtable_increment(volatile struct hashtable *self, int value){
     spin_lock(&self->lock);
 
     unsigned int h=hasher(value);
@@ -180,13 +182,14 @@ void free_buckets(struct bucket * self,int len){
     free(self);
 }
 
-void hashtable_put( struct hashtable *self, int value, int initial_bucket_size){
+void hashtable_put(volatile struct hashtable *self, int value, int initial_bucket_size){
+    printf("put in ht\n");
     spin_lock(&(self->lock));
-    if(hashtable_get(self,value)==value){
+    /*if(hashtable_get(self,value)==value){
         //printf("Already in bucket: %d\n",value);
         unlock(&(self->lock));
         return;
-    }
+    }*/
 
     struct input x;
     int h=hasher(value);
@@ -250,7 +253,7 @@ void hashtable_put( struct hashtable *self, int value, int initial_bucket_size){
     unlock(&(self->lock));
 }
 
-void hashtable_print( struct  hashtable *self){
+void hashtable_print(volatile struct  hashtable *self){
     spin_lock(&(self->lock));
     int j;
     int len=self->size;
@@ -263,7 +266,7 @@ void hashtable_print( struct  hashtable *self){
     unlock(&(self->lock));
 }
 
-void hashtable_elements_print(struct  hashtable *self){
+void hashtable_elements_print(volatile struct  hashtable *self){
     spin_lock(&(self->lock));
     printf("Value\tCount\n");
     int i,j,k;
@@ -300,7 +303,7 @@ int bucket_remove(struct bucket *self, int my_key){
 }
 
 
-int hashtable_remove( struct hashtable *self, int key){
+int hashtable_remove(volatile struct hashtable *self, int key){
     spin_lock(&(self->lock));
     unsigned int h=hasher(key);
     struct bucket *buf=self->buffer;
@@ -315,7 +318,7 @@ int hashtable_remove( struct hashtable *self, int key){
     return success;
 }
 
-void hashtable_stats( struct hashtable *self){
+void hashtable_stats(volatile struct hashtable *self){
     spin_lock(&(self->lock));
 	unsigned int i= self->insertions;
 	unsigned int l= self->length;

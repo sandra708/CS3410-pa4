@@ -33,20 +33,20 @@ struct hashtable
 //void bucket_print(struct bucket *self);
 
 /* initializes the hashtable*/
-void hashtable_create( struct hashtable *self, int hashtable_size, int my_bucket_size);
+void hashtable_create(volatile struct hashtable *self, int hashtable_size, int my_bucket_size);
 
 //returns 1 if value is in the table; 0 otherwise
-int hashtable_increment(struct hashtable *self, int value);
+int hashtable_increment(volatile struct hashtable *self, int value);
 
-int hashtable_get( struct hashtable *self, int value);
+int hashtable_get(volatile struct hashtable *self, int value);
 
-void hashtable_put( struct hashtable *self, int value, int initial_bucket_size);
+void hashtable_put(volatile struct hashtable *self, int value, int initial_bucket_size);
 
-void hashtable_print( struct  hashtable *self);
+void hashtable_print(volatile struct  hashtable *self);
 
-void hashtable_elements_print(struct  hashtable *self);
+void hashtable_elements_print(volatile struct  hashtable *self);
 
-int hashtable_remove( struct hashtable *self, int key);
+int hashtable_remove(volatile struct hashtable *self, int key);
 
 //never implemented
 //void hashtable_stats( struct hashtable *self);
