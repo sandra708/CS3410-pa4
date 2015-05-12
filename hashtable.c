@@ -265,14 +265,14 @@ void hashtable_print(volatile struct  hashtable *self){
 
 void hashtable_elements_print(volatile struct  hashtable *self){
     spin_lock(&(self->lock));
-    printf("Value\tCount\n");
+    printf(" Value\t Count\n");
     int i,j,k;
     struct input* temp;
     for(i=0;i<self->size;i++){
         k=self->buffer[i].num_inputs;
         temp=self->buffer[i].bucket_buffer;
         for(j=0;j<k;j++){
-            printf("  %d\t%x\n",temp[j].value,temp[j].count );
+            printf("  %x\t%d\n",temp[j].value,temp[j].count );
         }
     }
     unlock(&(self->lock));

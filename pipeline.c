@@ -17,9 +17,9 @@ void execute_checking_stage(volatile struct list_header* checking_buffer_list,vo
   struct packet_info* current_packet = poll(checking_buffer_list);
   current_packet->status=BEING_CHECKED;
   //checks if it is a command packet and executes this command
-  printf("Executing command pipeline.\n");
+  //printf("Executing command pipeline.\n");
   execute_command_pipeline(&current_packet->packet_start);
-  printf("Checking packet.\n");
+  //printf("Checking packet.\n");
   //checks if packet is evil/vulnerable/spam and increments hashtable
   int code = check_packet_pipeline(&current_packet->packet_start, current_packet->hash);
   //updates stats
