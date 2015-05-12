@@ -26,16 +26,14 @@ void execute_checking_stage(volatile struct list_header* checking_buffer_list,vo
   append_list(garbage_list, current_packet);
 }
 
-//gets the page base from the vaddr of the honeypot_command_packet pointer 
 void * get_page_base(void* dma_base_vaddr){
-  //        int lock   + int status+ int hash +unsign int packet_len+    struct info * next      +    struct info * prev
   int total=sizeof(struct packet_info);
   return dma_base_vaddr-total;
 }
 
 void execute_ringbuffer_stage(volatile struct list_header* garbage_list, volatile struct dma_ring_slot* current, volatile struct list_header * hashing_buffer_list){ 
   struct packet_info* current_packet =physical_to_virtual(current->dma_base)-0x18;
-  printf("base %p packet %p\n",physical_to_virtual(current->dma_base),current_packet );
+ // printf("base %p packet %p\n",physical_to_virtual(current->dma_base),current_packet );
   current_packet->packet_length = current->dma_len;
   current_packet->status = IN_HASHING_LIST;
   //printf("%p\n",current_packet );

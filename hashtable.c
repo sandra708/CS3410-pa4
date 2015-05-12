@@ -156,14 +156,14 @@ void free_buckets(struct bucket * self,int len){
     free(self);
 }
 
-void hashtable_put( struct hashtable *self, int value, int initial_bucket_size){
-    printf("put in ht\n");
-    spin_lock(&(self->lock));
+void hashtable_put( struct hashtable *self, int value, int initial_bucket_size){  
+
     if(hashtable_get(self,value)==value){
         //printf("Already in bucket: %d\n",value);
         unlock(&(self->lock));
         return;
     }
+    spin_lock(&(self->lock));
 
     struct input x;
     int h=hasher(value);
@@ -174,7 +174,6 @@ void hashtable_put( struct hashtable *self, int value, int initial_bucket_size){
     int success;
 
     float current_load=(l+1)/(float)s;
-    
     if(current_load>LOAD_FACTOR){		//if we must double the size
        printf("resizing hashtable\n");
 	   unsigned int new_size=2*s;

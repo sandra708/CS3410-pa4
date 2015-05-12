@@ -27,9 +27,9 @@ volatile int bytes_handled=0;
 volatile int * rx_buff_lock;
 
 
-volatile struct hashtable evil_hashtable;
-volatile struct hashtable vulnerable_hashtable;
-volatile struct hashtable spam_hashtable;
+ struct hashtable evil_hashtable;
+ struct hashtable vulnerable_hashtable;
+ struct hashtable spam_hashtable;
 
 
 
@@ -208,9 +208,9 @@ void network_init_pipeline(){
     printf("Succesfully added %d spots to the ring_buffer\n", spots);
     net_dev->rx_capacity=spots;
     printf("start rx_tail %d\n",net_dev->rx_tail );
-    //hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
-    //hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
-    //hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
+    hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
+    hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
+    hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
     printf("ring_buffer %p \n", ring_buffer_pipeline);
 }
 
@@ -298,21 +298,21 @@ void evil_print(){
     printf("------------------\n");
     printf("-------evil-------\n");
     printf("------------------\n");
-    //hashtable_elements_print(&evil_hashtable);
+    hashtable_elements_print(&evil_hashtable);
 }
 
 void vulnerable_print(){
     printf("------------------\n");
     printf("----vulnerable----\n");
     printf("------------------\n");
-    //hashtable_elements_print(&vulnerable_hashtable);
+    hashtable_elements_print(&vulnerable_hashtable);
 }
 
 void spam_print(){
     printf("------------------\n");
     printf("-------spam-------\n");
     printf("------------------\n");
-   // hashtable_elements_print(&spam_hashtable);
+    hashtable_elements_print(&spam_hashtable);
 }
 
 void all_print(){
@@ -378,46 +378,46 @@ void network_trap(){
 
 void execute_command_pipeline(struct honeypot_command_packet *packet){
     unsigned short command = packet->cmd_big_endian;
-    //unsigned int data =packet->data_big_endian;
+    unsigned int data =packet->data_big_endian;
     //printf("%x %p\n",command,packet );
     if(command==print_stats){
         //network_trap();
         all_print();
     }
     else if(command==add_spammer){
-       // hashtable_put(&spam_hashtable,data,spam_bucket_size);
-        printf("i\n");
-        spam_print();
+        hashtable_put(&spam_hashtable,data,spam_bucket_size);
+       // printf("i\n");
+        //spam_print();
     }
     else if(command==add_vulnerable){
-        //hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
-                printf("i\n");
+        hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
+                //printf("i\n");
 
-        vulnerable_print();
+        //vulnerable_print();
     }
     else if(command==add_evil_m){
-        //hashtable_put(&evil_hashtable,change_end(data),evil_bucket_size);
-                printf("i\n");
+        hashtable_put(&evil_hashtable,change_end(data),evil_bucket_size);
+                //printf("i\n");
 
-        evil_print();
+        //evil_print();
     }
     else if(command==del_spammer){
-       // hashtable_remove(&spam_hashtable,data);
-                printf("i\n");
+        hashtable_remove(&spam_hashtable,data);
+           //     printf("i\n");
 
-        spam_print();
+       // spam_print();
     }
     else if(command==del_vulnerable){
-       // hashtable_remove(&vulnerable_hashtable,data);
-                printf("i\n");
+        hashtable_remove(&vulnerable_hashtable,data);
+         //       printf("i\n");
 
-        vulnerable_print();
+      //  vulnerable_print();
     }
     else if(command==del_evil){
-      //  hashtable_remove(&evil_hashtable,change_end(data));
-                printf("i\n");
+        hashtable_remove(&evil_hashtable,change_end(data));
+        //        printf("i\n");
 
-        evil_print();
+       // evil_print();
     }
   
 }
@@ -426,10 +426,11 @@ void execute_command_pipeline(struct honeypot_command_packet *packet){
 //    Returns the correct code defined above and puts the packet info into
 //    the correct hashtable if necessary.
 int check_packet_pipeline(struct honeypot_command_packet * packet, int hash){
-   // unsigned int src_addr=packet->headers.ip_source_address_big_endian;
-   // unsigned int des_addr=packet->headers.udp_dest_port_big_endian<<16;
+   
+    unsigned int src_addr=packet->headers.ip_source_address_big_endian;
+    unsigned int des_addr=packet->headers.udp_dest_port_big_endian<<16;
     int code=0;
-    /*if(src_addr==hashtable_get(&spam_hashtable,src_addr)){
+    if(src_addr==hashtable_get(&spam_hashtable,src_addr)){
         total_spam++;
         code+=is_spammer;
     }
@@ -441,15 +442,15 @@ int check_packet_pipeline(struct honeypot_command_packet * packet, int hash){
         total_evil++;
         code+=is_evil;
 
-    }*/
+    }
        // printf("%s\n", );
     return code;
 }
 
 /*Updates all statistics according to that packet*/
 void update_stats(struct packet_info *current_packet){
-    total_packets++;
-    bytes_handled+=current_packet->packet_length;
+    //total_packets++;
+    //bytes_handled+=current_packet->packet_length;
 }
 
 void core_start(int core_id){

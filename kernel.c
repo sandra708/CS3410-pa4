@@ -130,7 +130,6 @@ void __boot() {
 
     keyboard_init();
     set_cpu_enable(0xFFFFFFFF);
-
   network_init_pipeline();
   network_start_receive();
 }
