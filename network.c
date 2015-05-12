@@ -52,7 +52,7 @@ void garbage_list_alloc(int num_packets){
         me->packet_length=i;//set to 0 later
         before->prev=me; //packet before me has me as its previous
         me->next=before; //my next is the packet before me
-        printf("i %d self %x v %p\n",i,virtual_to_physical(me),me );
+        //printf("i %d self %x v %p\n",i,virtual_to_physical(me),me );
         before=me; 
     }
 
@@ -91,7 +91,7 @@ void network_init_pipeline(){
             net_dev = physical_to_virtual(bootparams->devtable[i].start);//find the pointer to the network device 
             net_dev->cmd=NET_SET_POWER;//turn on device
             net_dev->data=1;
-            printf("Network Device is on..\n");
+            //printf("Network Device is on..\n");
             ring_buffer_pipeline = (struct dma_ring_slot*) malloc(sizeof(struct dma_ring_slot) * RING_SIZE);//malloc ring buffer
             int temp=(int)ring_buffer_pipeline;
             net_dev->rx_base=virtual_to_physical((void*)temp);
@@ -226,9 +226,9 @@ void network_poll(){
 
     //printf("polling..\n" );
    volatile struct dma_ring_slot *curr;
-
     while(1){
-        while(net_dev->rx_head!=net_dev->rx_tail ){
+        while(net_dev->rx_head != net_dev->rx_tail ){
+            //printf("Removing a packet.\n");
             curr=&ring_buffer_pipeline[net_dev->rx_tail%RING_SIZE];
             execute_ringbuffer_stage(garbage_list, curr, hashing_buffer_list);
             net_dev->rx_tail++;   
@@ -249,31 +249,34 @@ void network_stats_print(){
 void execute_command_pipeline(struct honeypot_command_packet *packet){
     unsigned short command = packet->cmd_big_endian;
     unsigned int data =packet->data_big_endian;
+
     if(command==print_stats){
         //network_trap();
         all_print();
     }
     else if(command==add_spammer){
         hashtable_put(&spam_hashtable,data,spam_bucket_size);
-
+    }
+    else if(command==add_vulnerable){
+        hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
     }
     else if(command==add_vulnerable){
         hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
     }
     else if(command==add_evil_m){
         hashtable_put(&evil_hashtable,change_end(data),evil_bucket_size);
-
     }
     else if(command==del_spammer){
         hashtable_remove(&spam_hashtable,data);
     }
     else if(command==del_vulnerable){
         hashtable_remove(&vulnerable_hashtable,data);
-
+    }
+    else if(command==del_vulnerable){
+       hashtable_remove(&vulnerable_hashtable,data);
     }
     else if(command==del_evil){
         hashtable_remove(&evil_hashtable,change_end(data));
-
     }
   
 }
@@ -305,8 +308,10 @@ void core_start(int core_id){
         network_poll();
     }
     else if (core_id == 2){
-        busy_wait(1);
+            busy_wait(1);
+
         while(1){
+
             execute_checking_stage(check_packet_buffer_list, garbage_list, stats);
         }
     } 

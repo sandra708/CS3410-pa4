@@ -130,11 +130,11 @@ void __boot() {
 
     keyboard_init();
     set_cpu_enable(0xFFFFFFFF);
-  network_init_pipeline();
-  network_start_receive();
-}
-
-core_start(current_cpu_id());
+    network_init_pipeline();
+    network_start_receive();
+    set_cpu_enable(0xFFFFFFFF);
+  }
+  core_start(current_cpu_id());
 
   while (1) ;
 
