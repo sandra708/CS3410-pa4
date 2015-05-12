@@ -2,7 +2,7 @@
 #ifndef ____network__
 #define ____network__
 
-//#include <stdio.h>
+#include "list.h"
 
 #define MAX_PACKETS 100
 #define RING_SIZE 16
@@ -35,24 +35,6 @@ spam&evil&vulnerable=9
 #define is_spammer 1
 #define is_evil 3
 #define is_vulnerable 5
-
-
-struct packet_info{
-    int lock;
-    int status; //status values defined in pipeline.h
-    int hash;
-    unsigned int packet_length; //bytes in honeypot_command_packet
-    struct packet_info* next; //packet in front of me
-    struct packet_info* prev; //packet behind me
-    struct honeypot_command_packet packet_start; //honeypot data start
-};
-
-struct list_header{
-    int lock;
-    int length; //number of elements in list -> 0 if empty
-    struct packet_info* head;
-    struct packet_info* tail;
-};
 
 // Initializes the network driver, allocating the space for the ring buffer.
 void network_init();
@@ -107,22 +89,9 @@ int check_packet_pipeline(struct honeypot_command_packet * packet, int hash);
 /*Updates all statistics according to that packet*/
 void update_stats(struct packet_info *current_packet);
 
-//mutex locker
-void spin_lock(volatile int* m);
-
-//mutex unlocker
-volatile int* unlock(volatile int *m);
-
 //assigns each core to its pipeline stage
 void core_start(int core_id);
 
-//requests a lock
-void append_list(struct list_header *list, struct packet_info *packet);
 
-//requests lock - remains in the method until list has an element to remove
-struct packet_info* poll(struct list_header *list);
-
-//synchronization test
-void test_sync(struct list_header *list, struct packet_info *arr, int size);
 
 #endif
