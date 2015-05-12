@@ -29,9 +29,7 @@ void execute_checking_stage(volatile struct list_header* checking_buffer_list,vo
   append_list(garbage_list, current_packet);
 }
 
-//gets the page base from the vaddr of the honeypot_command_packet pointer 
 void * get_page_base(void* dma_base_vaddr){
-  //        int lock   + int status+ int hash +unsign int packet_len+    struct info * next      +    struct info * prev
   int total=sizeof(struct packet_info);
   return dma_base_vaddr-total;
 }

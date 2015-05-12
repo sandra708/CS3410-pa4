@@ -189,9 +189,10 @@ void hashtable_put(volatile struct hashtable *self, int value, int initial_bucke
     spin_lock(&(self->lock));
     /*if(hashtable_get(self,value)==value){
         //printf("Already in bucket: %d\n",value);
-        unlock(&(self->lock));
         return;
     }*/
+
+    spin_lock(&(self->lock));
 
     struct input* x = malloc(sizeof(struct input));
     
@@ -203,7 +204,6 @@ void hashtable_put(volatile struct hashtable *self, int value, int initial_bucke
     int success;
 
     float current_load=(l+1)/(float)s;
-    
     if(current_load>LOAD_FACTOR){		//if we must double the size
        //printf("resizing hashtable\n");
 	   unsigned int new_size=2*s;
@@ -250,8 +250,6 @@ void hashtable_put(volatile struct hashtable *self, int value, int initial_bucke
         success=bucket_toss(my_new_bucket, x);
        self->insertions+=success;
        self->length+=success;
-
-
     }
     unlock(&(self->lock));
 }
@@ -271,14 +269,14 @@ void hashtable_print(volatile struct  hashtable *self){
 
 void hashtable_elements_print(volatile struct  hashtable *self){
     spin_lock(&(self->lock));
-    printf("Value\tCount\n");
+    printf(" Value\t Count\n");
     int i,j,k;
     struct input* temp;
     for(i=0;i<self->size;i++){
         k=self->buffer[i].num_inputs;
         temp=self->buffer[i].bucket_buffer;
         for(j=0;j<k;j++){
-            printf("  %d\t%x\n",temp[j].value,temp[j].count );
+            printf("  %x\t%d\n",temp[j].value,temp[j].count );
         }
     }
     unlock(&(self->lock));

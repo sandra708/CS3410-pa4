@@ -129,15 +129,12 @@ void __boot() {
     trap_init();
 
     keyboard_init();
-
-
-  network_init_pipeline();
-//  network_start_receive();
-
-      set_cpu_enable(0xFFFFFFFF);
-}
-
-core_start(current_cpu_id());
+    set_cpu_enable(0xFFFFFFFF);
+    network_init_pipeline();
+    network_start_receive();
+    set_cpu_enable(0xFFFFFFFF);
+  }
+  core_start(current_cpu_id());
 
   while (1) ;
 

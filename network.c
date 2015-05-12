@@ -13,7 +13,7 @@ volatile struct list_header *check_packet_buffer_list; //list of packets waiting
 //struct dma_ring_slot* ring_buffer;//pointer to the base of the ring buffer
 volatile struct dma_ring_slot* ring_buffer_pipeline;//pointer to the base of the ring buffer
 
-struct global_stats* stats;
+volatile struct global_stats* stats;
 
 volatile struct hashtable evil_hashtable;
 volatile struct hashtable vulnerable_hashtable;
@@ -109,11 +109,10 @@ void network_init_pipeline(){
     int spots= initial_dma_ring_slot_init();//
     printf("Succesfully added %d spots to the ring_buffer\n", spots);
     net_dev->rx_capacity=spots;
-    printf("start rx_tail %d\n",net_dev->rx_tail );
+
     hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
     hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
     hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
-    printf("ring_buffer %p \n", ring_buffer_pipeline);
 }
 
 void network_start_receive(){
@@ -169,21 +168,21 @@ void evil_print(){
     printf("------------------\n");
     printf("-------evil-------\n");
     printf("------------------\n");
-    //hashtable_elements_print(&evil_hashtable);
+    hashtable_elements_print(&evil_hashtable);
 }
 
 void vulnerable_print(){
     printf("------------------\n");
     printf("----vulnerable----\n");
     printf("------------------\n");
-    //hashtable_elements_print(&vulnerable_hashtable);
+    hashtable_elements_print(&vulnerable_hashtable);
 }
 
 void spam_print(){
     printf("------------------\n");
     printf("-------spam-------\n");
     printf("------------------\n");
-   // hashtable_elements_print(&spam_hashtable);
+    hashtable_elements_print(&spam_hashtable);
 }
 
 void all_print(){
@@ -191,7 +190,6 @@ void all_print(){
     spam_print();
     vulnerable_print();
     evil_print();
-
     simple_stats_print(stats);
 }
 /*
@@ -229,7 +227,6 @@ void network_poll(){
 
     //printf("polling..\n" );
    volatile struct dma_ring_slot *curr;
-   network_start_receive();
     while(1){
         while(net_dev->rx_head != net_dev->rx_tail ){
             //printf("Removing a packet.\n");
@@ -253,47 +250,34 @@ void network_stats_print(){
 void execute_command_pipeline(struct honeypot_command_packet *packet){
     unsigned short command = packet->cmd_big_endian;
     unsigned int data =packet->data_big_endian;
-    change_end(data);
-    //printf("%x %p\n",command,packet );
+    data = change_end(data);
+
     if(command==print_stats){
         //network_trap();
         all_print();
     }
     else if(command==add_spammer){
         hashtable_put(&spam_hashtable,data,spam_bucket_size);
-        //spam_print();
     }
     else if(command==add_vulnerable){
         hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
-
-        //vulnerable_print();
     }
     else if(command==add_evil_m){
         hashtable_put(&evil_hashtable,data,evil_bucket_size);
-
-        //evil_print();
     }
     else if(command==del_spammer){
        hashtable_remove(&spam_hashtable,data);
-
-        //spam_print();
     }
     else if(command==del_vulnerable){
        hashtable_remove(&vulnerable_hashtable,data);
-
-        //vulnerable_print();
     }
     else if(command==del_evil){
       hashtable_remove(&evil_hashtable,data);
-
-        //evil_print();
     }
   
 }
 
-/* Checks if the packet is evil, vulnerable, or spam
-    Returns the correct code defined above and puts the packet info into
-    the correct hashtable if necessary.*/
+
 int check_packet_pipeline(struct honeypot_command_packet* packet, int hash){
     unsigned int src_addr = packet->headers.ip_source_address_big_endian;
     unsigned int des_addr = packet->headers.udp_dest_port_big_endian<<16;
@@ -316,14 +300,19 @@ void core_start(int core_id){
         while(1);
     }
     else if (core_id == 1){
+        busy_wait(1);
         network_poll();
     }
     else if (core_id == 2){
+            busy_wait(1);
+
         while(1){
+
             execute_checking_stage(check_packet_buffer_list, garbage_list, stats);
         }
     } 
-    else{busy_wait(1);
+    else{
+        busy_wait(1);
         while(1)
              execute_hashing_stage(hashing_buffer_list, check_packet_buffer_list);
     }
