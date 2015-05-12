@@ -124,6 +124,7 @@ int initial_dma_ring_slot_init(){
    // printf("b %p\n",&garbage_list->lock);
    // printf("initial_dma_ring_slot_init:\n");
     //int gl = (int) &garbage_list->lock;
+    
     spin_lock(&garbage_list->lock);
     int i=0;
     while( i < RING_SIZE && garbage_list->length>0){
@@ -150,6 +151,20 @@ int initial_dma_ring_slot_init(){
 
     }
     unlock(&garbage_list->lock);
+    
+    /*
+    skeleton for refactored loop?
+    int i = 0;
+    while(i < RING_SIZE){
+        struct packet_info* next = get(garbage_list);
+        if(next == NULL){
+            break;
+        }else{
+            next->status = IN_RING_BUFFER;
+            ring_buffer_pipeline[i].dma_base=virtual_to_physical(next->packet_start);
+        }
+    }
+    */
 
     //printf("Succesfully allocated %d/%d ring slots, Sincerely, core %d\n", i,RING_SIZE, current_cpu_id());
    // printf("ring_buffer %p\n",ring_buffer_pipeline );
@@ -449,72 +464,5 @@ void core_start(int core_id){
     }
 }
 
-void spin_lock(volatile int* m){
-    asm(".set mips2");
-    asm("try:");
-    asm("ll $8, 0($4)");
-    asm("bne $8, $0, try");
-    asm("addiu $8, $0, 1");
-    asm("sc $8, 0($4)");
-    asm("beq $8, $0, try");
-     //printf("Core %d acquired lock. at %p\n", current_cpu_id() ,m);
-}
 
-volatile int* unlock(volatile int *m){
-	//printf("Core %d releasing lock.\n", current_cpu_id());
-    register volatile int* addr asm("t0") = m;
-    asm(".set mips2");
-    asm("sw $0, 0($8)");
-    return addr;
-}
-
-/*
-//requests a lock
-void append_list(struct list_header *list, struct packet_info *packet){
-    spin_lock(&(list->lock));
-    if(list->length == 0){
-        list->head = packet;
-        list->tail = packet;
-    }else{
-        (list->tail)->next = packet;
-        list->tail = packet;
-    }
-    (list->length)++;
-    printf("Core %d added packet at %p.\n", current_cpu_id(), packet);
-    printf("After appending, list is %d elements long.\n", list->length);
-    unlock(&(list->lock));
-}
-
-//requests lock - remains in the method until list has an element to remove
-struct packet_info* poll(struct list_header *list){
-    while(1){
-        spin_lock(&(list->lock));
-        if(list->length) break; //list is non-empty
-        printf("List empty: waiting for an element to remove.\n");
-        unlock(&(list->lock));
-        
-        busy_wait_cycles(0x00001000); //random value - apply testing
-    }
-    
-    struct packet_info* poll = list->head;
-    struct packet_info* next = poll->next;
-    list->head = next;
-    (list->length)--;
-    printf("Core %d removed packet at %p.\n", current_cpu_id(), poll);
-    printf("After polling, list is %d elements long.\n", list->length);      
-
-    unlock(&(list->lock));
-    
-    return poll;
-}
-
-void test_sync(struct list_header *list, struct packet_info *arr, int size){
-    while(size){
-        append_list(list, &arr[size - 1]);
-        
-        poll(list);
-        size--;
-    }
-    //printf("Core %d has added all of its packets.\n", current_cpu_id());
-}*/
 

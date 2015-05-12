@@ -26,9 +26,11 @@ struct hashtable
     int size;
     int length;
     int insertions;
+    int lock;
 };
 
-void bucket_print(struct bucket *self);
+//this is not independently sychronizable under the current mutex
+//void bucket_print(struct bucket *self);
 
 /* initializes the hashtable*/
 void hashtable_create( struct hashtable *self, int hashtable_size, int my_bucket_size);
@@ -45,7 +47,8 @@ void hashtable_elements_print(struct  hashtable *self);
 
 int hashtable_remove( struct hashtable *self, int key);
 
-void hashtable_stats( struct hashtable *self);
+//never implemented
+//void hashtable_stats( struct hashtable *self);
 
 void stats_print();
 

@@ -24,24 +24,38 @@ void keyboard_init()
 void keyboard_trap() {
   // note: interrupts should be off already
   // so long as there is a character to be read
+
+  //we disable interrupts anyways, for more safety
+  
+
   while (dev_kbd->status) {
     // read the character
     char c = dev_kbd->data;
     // then just print it
     if(c=='t'){
+      int level = intr_disable();
       simple_stats_print();
+      intr_restore(level);
     }  
     else if(c=='s'){
+      int level = intr_disable();
       spam_print();
+      intr_restore(level);
     }
     else if(c=='v'){
+      int level = intr_disable();
       vulnerable_print();
+      intr_restore(level);
     }
     else if(c=='e'){
+      int level = intr_disable();
       evil_print();
+      intr_restore(level);
     }
     else if(c=='a'){
+      int level = intr_disable();
       all_print();
+      intr_restore(level);
     }
   }
 }

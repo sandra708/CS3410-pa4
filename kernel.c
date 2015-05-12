@@ -1,5 +1,5 @@
 #include "kernel.h"
-#include "network.h"
+//#include "network.h"
 struct bootparams *bootparams;
 
 int debug = 1; // change to 0 to stop seeing so many messages
