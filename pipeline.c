@@ -35,8 +35,8 @@ void execute_ringbuffer_stage(volatile struct list_header* garbage_list, volatil
   struct packet_info* current_packet = get_page_base(physical_to_virtual(ring_buffer->dma_base));
   current_packet->packet_length = ring_buffer->dma_len;
   current_packet->status = IN_HASHING_LIST;
+  
   append_list(hashing_buffer_list, current_packet);
-
   struct packet_info* next_packet = poll(garbage_list);
   next_packet->status = IN_RING_BUFFER;
   ring_buffer->dma_base = virtual_to_physical(&next_packet->packet_start);

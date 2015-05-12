@@ -106,12 +106,12 @@ void garbage_list_alloc(int num_packets){
         me->packet_length=i;//set to 0 later
         before->prev=me; //packet before me has me as its previous
         me->next=before; //my next is the packet before me
-        printf("i %d self %p next %p pktstart %p\n",i,me,before,&me->packet_start );
+        //printf("i %d self %p next %p pktstart %p\n",i,me,before,&me->packet_start );
         before=me; 
     }
 
-    garbage_list->head=first;
-    garbage_list->tail=before;
+    garbage_list->head=before;
+    garbage_list->tail=first;
     garbage_list->length=num_packets;
 }
 
@@ -125,7 +125,7 @@ int initial_dma_ring_slot_init(){
    // printf("b %p\n",&garbage_list->lock);
    // printf("initial_dma_ring_slot_init:\n");
     //int gl = (int) &garbage_list->lock;
-    
+    /*
     spin_lock(&garbage_list->lock);
     int i=0;
     while( i < RING_SIZE && garbage_list->length>0){
@@ -151,29 +151,27 @@ int initial_dma_ring_slot_init(){
         }
 
     }
-    unlock(&garbage_list->lock);
+    unlock(&garbage_list->lock);*/
     
     /*
-    skeleton for refactored loop?
+    skeleton for refactored loop?*/
     int i = 0;
     while(i < RING_SIZE){
-        struct packet_info* next = get(garbage_list);
-        if(next == NULL){
-            break;
-        }else{
-            next->status = IN_RING_BUFFER;
-            ring_buffer_pipeline[i].dma_base=virtual_to_physical(next->packet_start);
-        }
+        printf("Allocating %dth ring slot. ", i);
+        struct packet_info* next = poll(garbage_list); //if we allocated less than 16 packets initially, we won't ever be able to process anything
+        printf("Pointer %p.\n", next);
+        next->status = IN_RING_BUFFER;
+        ring_buffer_pipeline[i].dma_base=virtual_to_physical(&next->packet_start);
+        i++;
     }
-    */
 
     //printf("Succesfully allocated %d/%d ring slots, Sincerely, core %d\n", i,RING_SIZE, current_cpu_id());
    // printf("ring_buffer %p\n",ring_buffer_pipeline );
-    for (int j = 0; j < i; j++)
+    /*for (int j = 0; j < i; j++)
     {
         //printf("dma start %p\n",&ring_buffer_pipeline[j] );
         //printf("ring_buffer[%d]=%p\n",j,physical_to_virtual(ring_buffer_pipeline[j].dma_base));
-    }
+    }*/
     return i;    
 }
 
