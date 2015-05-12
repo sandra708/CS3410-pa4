@@ -4,7 +4,7 @@
 
 #include "list.h"
 
-#define MAX_PACKETS 60
+#define MAX_PACKETS 500
 #define RING_SIZE 16
 #define secret_little_endian 0x1034
 

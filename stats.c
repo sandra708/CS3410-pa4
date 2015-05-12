@@ -4,7 +4,7 @@
 void update_stats(volatile struct global_stats* stats, struct packet_info *current_packet, int code){
 	spin_lock(&stats->lock);
 
-    printf("Updating stats.");
+    //printf("Updating stats.");
 
     stats->total_packets++;
     stats->bytes_handled += current_packet->packet_length;
@@ -23,6 +23,7 @@ void simple_stats_print(volatile struct global_stats* stats){
     int secs1 = ((double) (cycle - stats->time_start))/((double) CPU_CYCLES_PER_SECOND);
     //int secs2=(cycle-last_print)/CPU_CYCLES_PER_SECOND;
     //last_print=cycle;
+    if(secs1==0)secs1=1;
     int r1 = stats->total_packets/secs1;
     int r2 = stats->bytes_handled/secs1;
     //int r3=total_packets/(secs2+1);

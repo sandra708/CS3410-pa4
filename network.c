@@ -307,7 +307,7 @@ void core_start(int core_id){
         busy_wait(1);
         network_poll();
     }
-    else if (core_id == 2){
+    else if (core_id < 15){
             busy_wait(1);
 
         while(1){
