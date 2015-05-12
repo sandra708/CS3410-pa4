@@ -4,8 +4,6 @@
 void update_stats(volatile struct global_stats* stats, struct packet_info *current_packet, int code){
 	spin_lock(&stats->lock);
 
-    printf("Updating stats.");
-
     stats->total_packets++;
     stats->bytes_handled += current_packet->packet_length;
 

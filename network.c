@@ -110,9 +110,9 @@ void network_init_pipeline(){
     printf("Succesfully added %d spots to the ring_buffer\n", spots);
     net_dev->rx_capacity=spots;
     printf("start rx_tail %d\n",net_dev->rx_tail );
-    //hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
-    //hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
-    //hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
+    hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
+    hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
+    hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
     printf("ring_buffer %p \n", ring_buffer_pipeline);
 }
 
@@ -261,32 +261,32 @@ void execute_command_pipeline(struct honeypot_command_packet *packet){
     }
     else if(command==add_spammer){
         hashtable_put(&spam_hashtable,data,spam_bucket_size);
-        spam_print();
+        //spam_print();
     }
     else if(command==add_vulnerable){
         hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
 
-        vulnerable_print();
+        //vulnerable_print();
     }
     else if(command==add_evil_m){
         hashtable_put(&evil_hashtable,data,evil_bucket_size);
 
-        evil_print();
+        //evil_print();
     }
     else if(command==del_spammer){
        hashtable_remove(&spam_hashtable,data);
 
-        spam_print();
+        //spam_print();
     }
     else if(command==del_vulnerable){
        hashtable_remove(&vulnerable_hashtable,data);
 
-        vulnerable_print();
+        //vulnerable_print();
     }
     else if(command==del_evil){
       hashtable_remove(&evil_hashtable,data);
 
-        evil_print();
+        //evil_print();
     }
   
 }

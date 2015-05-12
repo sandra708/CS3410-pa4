@@ -17,9 +17,9 @@ void execute_checking_stage(volatile struct list_header* checking_buffer_list,vo
   struct packet_info* current_packet = poll(checking_buffer_list);
   current_packet->status=BEING_CHECKED;
   //checks if it is a command packet and executes this command
-  printf("Executing command pipeline.\n");
+  //printf("Executing command pipeline.\n");
   execute_command_pipeline(&current_packet->packet_start);
-  printf("Checking packet.\n");
+  //printf("Checking packet.\n");
   //checks if packet is evil/vulnerable/spam and increments hashtable
   int code = check_packet_pipeline(&current_packet->packet_start, current_packet->hash);
   //updates stats
@@ -38,7 +38,7 @@ void * get_page_base(void* dma_base_vaddr){
 
 void execute_ringbuffer_stage(volatile struct list_header* garbage_list, volatile struct dma_ring_slot* current, volatile struct list_header * hashing_buffer_list){ 
   struct packet_info* current_packet =physical_to_virtual(current->dma_base)-0x18;
-  printf("base %p packet %p\n",physical_to_virtual(current->dma_base),current_packet );
+  //printf("base %p packet %p\n",physical_to_virtual(current->dma_base),current_packet );
   current_packet->packet_length = current->dma_len;
   current_packet->status = IN_HASHING_LIST;
   //printf("%p\n",current_packet );

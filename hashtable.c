@@ -164,9 +164,11 @@ int bucket_incr(struct bucket *self, int value){
 int hashtable_increment(volatile struct hashtable *self, int value){
     spin_lock(&self->lock);
 
+    //printf("Incrementing.\n");
     unsigned int h=hasher(value);
     struct bucket *b=self->buffer;
     unsigned int s=self->size;
+    //printf("Hashtable size: %d\n", self->size);
     int bucket_index=h%s;
     int r = bucket_incr( &b[bucket_index] ,value);
 
@@ -183,7 +185,7 @@ void free_buckets(struct bucket * self,int len){
 }
 
 void hashtable_put(volatile struct hashtable *self, int value, int initial_bucket_size){
-    printf("Put into hashtable.\n");
+    //printf("Put into hashtable.\n");
     spin_lock(&(self->lock));
     /*if(hashtable_get(self,value)==value){
         //printf("Already in bucket: %d\n",value);
@@ -191,10 +193,11 @@ void hashtable_put(volatile struct hashtable *self, int value, int initial_bucke
         return;
     }*/
 
-    struct input x;
-    int h=hasher(value);
-    input_create(&x, value, 0,h );
+    struct input* x = malloc(sizeof(struct input));
     
+    int h=hasher(value);
+    input_create(x, value, 0,h );
+    //printf("Hashtable size: %d\n", self->size);
     unsigned int s=self->size;
     unsigned int l=self->length;
     int success;
@@ -202,7 +205,7 @@ void hashtable_put(volatile struct hashtable *self, int value, int initial_bucke
     float current_load=(l+1)/(float)s;
     
     if(current_load>LOAD_FACTOR){		//if we must double the size
-       printf("resizing hashtable\n");
+       //printf("resizing hashtable\n");
 	   unsigned int new_size=2*s;
 	   struct bucket * bucket_list=self->buffer;
 
@@ -230,10 +233,10 @@ void hashtable_put(volatile struct hashtable *self, int value, int initial_bucke
        //free old buckets
 	   free_buckets(bucket_list,s);
 
-	   int bucket_index=x.my_hash%new_size;
+	   int bucket_index=x->my_hash%new_size;
 	   struct bucket * my_new_bucket=&self->buffer[bucket_index];
 
-	   success=bucket_toss(my_new_bucket, &x);
+	   success=bucket_toss(my_new_bucket, x);
         //succes=bucket_toss(my_new_bucket,value);
 	   self->insertions+=success;
 	   self->length+=success;
@@ -241,10 +244,10 @@ void hashtable_put(volatile struct hashtable *self, int value, int initial_bucke
     }
 
     else{
-        int bucket_index=x.my_hash%s;
-        struct bucket * my_new_bucket=&self->buffer[bucket_index];
+        int bucket_index=x->my_hash%s;
+        struct bucket* my_new_bucket=&self->buffer[bucket_index];
         //bucket_toss(my_new_bucket, &x);
-        success=bucket_toss(my_new_bucket,&x);
+        success=bucket_toss(my_new_bucket, x);
        self->insertions+=success;
        self->length+=success;
 
@@ -305,7 +308,7 @@ int bucket_remove(struct bucket *self, int my_key){
 
 int hashtable_remove(volatile struct hashtable *self, int key){
     spin_lock(&(self->lock));
-    printf("Removing element from hashtable.\n");
+    //printf("Removing element from hashtable.\n");
     unsigned int h=hasher(key);
     struct bucket *buf=self->buffer;
     unsigned int s=self->size;
