@@ -1,7 +1,7 @@
 #include "kernel.h"
 
 //requests a lock
-void append_list(struct list_header *list, struct packet_info *packet){
+void append_list(volatile struct list_header *list, struct packet_info *packet){
     spin_lock(&(list->lock));
     if(list->length == 0){
         list->head = packet;
@@ -16,7 +16,7 @@ void append_list(struct list_header *list, struct packet_info *packet){
 }
 
 //requests lock - remains in the method until list has an element to remove
-struct packet_info* poll(struct list_header *list){
+struct packet_info* poll(volatile struct list_header* list){
     while(1){
         spin_lock(&(list->lock));
         if(list->length) break; //list is non-empty
@@ -37,7 +37,7 @@ struct packet_info* poll(struct list_header *list){
 
 //polls and returns the head of the list if list nonempty
 //otherwise, returns NULL
-struct packet_info* get(struct list_header *list){
+struct packet_info* get(volatile struct list_header *list){
     spin_lock(&(list->lock));
     struct packet_info* val;
     if(list->length){

@@ -1,167 +1,28 @@
 #include "kernel.h"
 
 
-// executes transfer from hashing list then hashing then transfer to checking stage
-void execute_hashing_stage(volatile struct list_header * hashing_buffer_list,volatile  struct list_header * checking_buffer_list){
-//  printf("execute_hashing_stage 0*\n");
+void execute_hashing_stage(volatile struct list_header* hashing_buffer_list, volatile struct list_header* checking_buffer_list){
+  struct packet_info* current_packet = poll(hashing_buffer_list);
+  current_packet->status=BEING_HASHED;
 
-  struct packet_info * current_packet;
-  //printf("execute_hashing_stage 1*\n");
-  spin_lock(&hashing_buffer_list->lock);
-
-  if(hashing_buffer_list->length>0){
-    //printf("execute_hashing_stage 2*\n");
-
-    current_packet=hashing_buffer_list->head;
-       // printf("execute_hashing_stage %p\n", hashing_buffer_list->head);
-
-    spin_lock(&current_packet->lock);
-    if(current_packet->status==IN_HASHING_LIST){
-  //printf("execute_hashing_stage 3*\n");
-//printf("*\n");
-      hashing_buffer_list->head=current_packet->prev;
-      hashing_buffer_list->length--;
-      unlock(&hashing_buffer_list->lock);
-
-      current_packet->status=BEING_HASHED;
-      current_packet->hash=djb2((unsigned char *)&current_packet->packet_start,current_packet->packet_length);
-        // printf("hash %d\n",current_packet->hash );
-
-      current_packet->status=IN_CHECKING_LIST;
-      spin_lock(&checking_buffer_list->lock);
-      
-      current_packet->next=checking_buffer_list->tail;
-      checking_buffer_list->tail=current_packet;
-      if(checking_buffer_list->length==0){
-        checking_buffer_list->head=current_packet;
-      }
-      checking_buffer_list->length++;
-      unlock(&checking_buffer_list->lock);
-      unlock(&current_packet->lock);
-    }
-    else{
-      //printf("execute_hashing_stage 4*\n");
-      unlock(&current_packet->lock);
-      unlock(&hashing_buffer_list->lock);
-      //printf("%d\n",current_cpu_id() );
-
-      //printf("Packet at %p has incorrect status for hashing. Sincerely, core %d\n",current_packet,current_cpu_id() );
-      return;
-    }
-  }
-  else {//hashing_buffer_list length is 0;
-    unlock(&hashing_buffer_list->lock);
-      //printf("execute_hashing_stage 5*\n");
-    //printf("%d\n",current_cpu_id() );
-    //printf("No packets waiting to be hashed Sincerely, core %d\n",current_cpu_id());
-    return;
-  }
-  //printf("execute_hashing_stage 6*\n");
-
+  current_packet->hash=djb2((unsigned char *)&current_packet->packet_start,current_packet->packet_length);
+  
+  current_packet->status = IN_CHECKING_LIST;
+  append_list(checking_buffer_list, current_packet);
 }
 
-/*
-// executes transfer from checking list then checking then transfer to garbage list stage
-void execute_checking_stage(volatile struct list_header * checking_buffer_list,volatile  struct list_header * garbage_list){
+void execute_checking_stage(volatile struct list_header* checking_buffer_list,volatile  struct list_header* garbage_list){
+  struct packet_info* current_packet = poll(checking_buffer_list);
+  current_packet->status=BEING_CHECKED;
 
-  struct packet_info * current_packet;
-  spin_lock(&checking_buffer_list->lock);
-  if(checking_buffer_list->length>0){
-    current_packet=checking_buffer_list->head;
-    checking_buffer_list->head=current_packet->next;
-    checking_buffer_list->length--;
-    unlock(&cl);
-  }
-  else {//checking_buffer_list length is 0;
-    unlock(&cl);
-    //printf("%d\n",current_cpu_id() );
-    //printf("No packets waiting to be checked. Sincerely, core %d\n", current_cpu_id());
-    return;
-  }
+  //checks if it is a command packet and executes this command
+  execute_command_pipeline(&current_packet->packet_start);
+  //checks if packet is evil/vulnerable/spam  
+  check_packet_pipeline(&current_packet->packet_start, current_packet->hash);
 
-  spin_lock(&cl);
-  if(current_packet->status==IN_CHECKING_LIST){
-    current_packet->status=BEING_CHECKED;
-    execute_command_pipeline(current_packet->packet_start);//checks if it is a command packet and executes this command
-    check_packet_pipeline(current_packet->packet_start,current_packet->hash);//checks if packet is evil/vulnerable/spam
-    current_packet->status=IN_GARBAGE_LIST;
-    unlock(&cl);
-  }
-  else{
-    unlock(&current_packet->lock);
-    //printf("%d\n",current_cpu_id() );
-    ////printf("Packet at %p has incorrect status for checking. Sincerely, core %d\n", current_packet, current_cpu_id());
-    return;
-  }
-  int gl=garbage_list->lock;
-  spin_lock(&gl);
-  garbage_list->tail=current_packet;
-  garbage_list->length++;
-  unlock(&gl);
-}*/
-
-
-
-// executes transfer from hashing list then hashing then transfer to checking stage then to the garbage list
-void execute_checking_stage(volatile struct list_header * checking_buffer_list,volatile  struct list_header * garbage_list){
-  //printf("execute_checking_stage 0*\n");
-
-  struct packet_info * current_packet;
-  //printf("execute_checking_stage 1*\n");
-  spin_lock(&checking_buffer_list->lock);
-
-  if(checking_buffer_list->length>0){
-   // printf("execute_checking_stage 2*\n");
-
-    current_packet=checking_buffer_list->head;
-        //  printf("execute_checking_stage %p\n", checking_buffer_list->head);
-
-    spin_lock(&current_packet->lock);
-    if(current_packet->status==IN_CHECKING_LIST){
-  //printf("execute_checking_stage 3*\n");
-
-      checking_buffer_list->head=current_packet->prev;
-      checking_buffer_list->length--;
-      unlock(&checking_buffer_list->lock);
-
-      current_packet->status=BEING_CHECKED;
-    execute_command_pipeline(&current_packet->packet_start);//checks if it is a command packet and executes this command
-    check_packet_pipeline(&current_packet->packet_start,current_packet->hash);//checks if packet is evil/vulnerable/spam
-
-      //printf("code %d\n",c );
-
-      current_packet->status=IN_GARBAGE_LIST;
-      spin_lock(&garbage_list->lock);
-
-      current_packet->next=garbage_list->tail;
-      garbage_list->tail=current_packet;
-
-      if(garbage_list->length==0){
-        garbage_list->head=current_packet;
-      }
-      garbage_list->length++;
-      unlock(&garbage_list->lock);
-      unlock(&current_packet->lock);
-    }
-    else{
-      unlock(&current_packet->lock);
-      unlock(&checking_buffer_list->lock);
-      //printf("%d\n",current_cpu_id() );
-      //printf("Packet at %p has incorrect status for checking. Sincerely, core %d\n",current_packet,current_cpu_id() );
-      return;
-    }
-  }
-  else {//garbage_list length is 0;
-    unlock(&checking_buffer_list->lock);
-    //printf("No packets waiting to be checked Sincerely, core %d\n",current_cpu_id());
-    return;
-  }
-  //printf("execute_checking_stage 6*\n");
-
+  current_packet->status = IN_GARBAGE_LIST;
+  append_list(garbage_list, current_packet);
 }
-
-
-
 
 // executes transfer from garbage list to ring buffer list stage
  //   Assumes that only one core performs this job and is therefore 
