@@ -18,11 +18,8 @@ void execute_checking_stage(volatile struct list_header* checking_buffer_list,vo
   struct packet_info* current_packet = poll(checking_buffer_list);
   current_packet->status=BEING_CHECKED;
   //checks if it is a command packet and executes this command
-   if(current_packet==(void*)0xc0217000){
-    printf("%p %p %x %x\n",current_packet,&current_packet->packet_start, current_packet->packet_start.cmd_big_endian,current_packet->packet_start.data_big_endian);
-  }   
-    execute_command_pipeline(&current_packet->packet_start);
-  //checks if packet is evil/vulnerable/spam  
+  
+  execute_command_pipeline(&current_packet->packet_start);
   check_packet_pipeline(&current_packet->packet_start, current_packet->hash);
   update_stats(current_packet);
   current_packet->status = IN_GARBAGE_LIST;
@@ -36,19 +33,19 @@ void * get_page_base(void* dma_base_vaddr){
   return dma_base_vaddr-total;
 }
 
-void execute_ringbuffer_stage(volatile struct list_header* garbage_list, volatile struct dma_ring_slot* ring_buffer, volatile struct list_header * hashing_buffer_list, int index){ 
-  struct dma_ring_slot cur= ring_buffer[index];
-  struct packet_info* current_packet = get_page_base(physical_to_virtual(cur.dma_base));
-  current_packet->packet_length = cur.dma_len;
+void execute_ringbuffer_stage(volatile struct list_header* garbage_list, volatile struct dma_ring_slot* current, volatile struct list_header * hashing_buffer_list){ 
+  struct packet_info* current_packet =physical_to_virtual(current->dma_base)-0x18;
+  printf("base %p packet %p\n",physical_to_virtual(current->dma_base),current_packet );
+  current_packet->packet_length = current->dma_len;
   current_packet->status = IN_HASHING_LIST;
-
+  //printf("%p\n",current_packet );
   append_list(hashing_buffer_list, current_packet);
 
   struct packet_info* next_packet = poll(garbage_list);
 
   next_packet->status = IN_RING_BUFFER;
-  ring_buffer[index].dma_base = virtual_to_physical(&next_packet->packet_start);
-  ring_buffer[index].dma_len = NET_MAXPKT;
+  current->dma_len = NET_MAXPKT;
+  current->dma_base = virtual_to_physical(&next_packet->packet_start);
 
 }
 

@@ -4,7 +4,7 @@
 
 #include "list.h"
 
-#define MAX_PACKETS 500
+#define MAX_PACKETS 60
 #define RING_SIZE 16
 #define secret_little_endian 0x1034
 
@@ -79,7 +79,7 @@ unsigned long djb2(unsigned char *pkt, int n);
 void network_poll();
 
 /*Checks if the packet is a command packet and executes the command if it is*/
-void execute_command_pipeline(struct honeypot_command_packet * packet);
+void execute_command_pipeline(struct honeypot_command_packet *packet);
 
 /* Checks if the packet is evil, vulnerable, or spam
     Returns the correct code defined above and puts the packet info into
