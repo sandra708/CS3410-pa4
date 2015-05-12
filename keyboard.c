@@ -34,7 +34,7 @@ void keyboard_trap() {
     // then just print it
     if(c=='t'){
       int level = intr_disable();
-      simple_stats_print();
+      network_stats_print();
       intr_restore(level);
     }  
     else if(c=='s'){

@@ -14,14 +14,18 @@ void execute_hashing_stage(volatile struct list_header* hashing_buffer_list, vol
   append_list(checking_buffer_list, current_packet);
 }
 
-void execute_checking_stage(volatile struct list_header* checking_buffer_list,volatile  struct list_header* garbage_list){
+void execute_checking_stage(volatile struct list_header* checking_buffer_list,volatile  struct list_header* garbage_list, volatile struct global_stats* stats){
   struct packet_info* current_packet = poll(checking_buffer_list);
   current_packet->status=BEING_CHECKED;
   //checks if it is a command packet and executes this command
   
   execute_command_pipeline(&current_packet->packet_start);
-  check_packet_pipeline(&current_packet->packet_start, current_packet->hash);
-  update_stats(current_packet);
+
+  //checks if packet is evil/vulnerable/spam and increments hashtable
+  int code = check_packet_pipeline(&current_packet->packet_start, current_packet->hash);
+  //updates stats
+  update_stats(stats, current_packet, code);
+
   current_packet->status = IN_GARBAGE_LIST;
   append_list(garbage_list, current_packet);
 }
@@ -58,7 +62,7 @@ void execute_garbage_list_transfer_stage(volatile struct dev_net * net_dev,volat
   if(net_dev->rx_tail < rx_buff){//if there is space in the ring buffer 
     spin_lock(&garbage_list->lock);
     if(garbage_list->length>0){//if there are packets in the garbage list
-//printf("*\n");
+//printf("\n");
       current_packet=garbage_list->head;
       garbage_list->head=current_packet->prev;
       garbage_list->length--;
@@ -99,14 +103,14 @@ void execute_garbage_list_transfer_stage(volatile struct dev_net * net_dev,volat
     //printf("Waiting for stuff to be removed from the buffer.....Sincerely, core %d\n",current_cpu_id());
   }
 }
-
+*/
 
 
 //removes a packet from the ring buffer into hashing_buffer_list
 //assumes that there is a packet to remove
 //returns new rx_buff if succesful and old one if unsucessful
 //
-int execute_remove_from_ring_buffer(volatile struct dma_ring_slot* ring_buffer,volatile struct list_header * hashing_buffer_list, int rx_buff,int rx_head){
+/*int execute_remove_from_ring_buffer(volatile struct dma_ring_slot* ring_buffer,volatile struct list_header * hashing_buffer_list, int rx_buff,int rx_head){
 //printf("buff%d head %d \n",rx_buff,rx_head );
 
 if(rx_buff%RING_SIZE!=rx_head%RING_SIZE+1){
@@ -155,6 +159,4 @@ if(rx_buff%RING_SIZE!=rx_head%RING_SIZE+1){
 else{
   return rx_buff;
 }
-}
-
-*/
+}*/

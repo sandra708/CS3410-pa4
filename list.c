@@ -20,23 +20,16 @@ struct packet_info* poll(volatile struct list_header* list){
     while(1){
         spin_lock(&(list->lock));
         if(list->length){
-            if(current_cpu_id() == 0)printf("%d\n", list->length); 
            break; //list is non-empty 
         } 
         unlock(&(list->lock));
         
         busy_wait_cycles(0x00001000); //random value - apply testing
     }
-    //if(current_cpu_id() == 0)printf("L");
     struct packet_info* poll = list->head;
-    //if(current_cpu_id() == 0)printf("p");
-    //if(current_cpu_id() == 0)printf("%p\n", poll); 
     struct packet_info* next = poll->next;
-    //if(current_cpu_id() == 0)printf("n");
     list->head = next;
-    //if(current_cpu_id() == 0)printf("h");
     (list->length)--;
-    //if(current_cpu_id() == 0)printf("-\n");
     
     unlock(&(list->lock));
     
