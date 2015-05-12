@@ -122,18 +122,18 @@ void rehash( struct hashtable *self,struct input *x){
     
 }
 
-int bucket_get(struct bucket *self, int value){
+int bucket_get(struct bucket* self, int value){
     int i,tempv;
-    for(i=0;i<self->num_inputs;i++){    //for all inputs in the bucket
-       tempv=self->bucket_buffer[i].value; //get the value of the input
-       if(tempv==value){    //if the value matches
+    for(i=0; i<self->num_inputs; i++){    //for all inputs in the bucket
+       tempv= self->bucket_buffer[i].value; //get the value of the input
+       if(tempv == value){    //if the value matches
            //return (self->bucket_buffer[i]).value; 
-            self->bucket_buffer[i].count++;
-            return tempv;//return it
+            //self->bucket_buffer[i].count++;
+            return self->bucket_buffer[i].count;//return it
         }
     }
     //printf("ERROR key %d is not defined\n",key);
-    return 0;
+    return -1;
 }
 
 int hashtable_get( struct hashtable *self, int value){
@@ -144,6 +144,32 @@ int hashtable_get( struct hashtable *self, int value){
     int bucket_index=h%s;
     int r = bucket_get( &b[bucket_index] ,value);
     unlock(&(self->lock));
+    return r;
+}
+
+//increments the number of packets observed with $value, if $value is in the table
+int bucket_incr(struct bucket *self, int value){
+    int i;
+    for(i = 0; i < self->num_inputs; i++){
+        if(self->bucket_buffer[i].value == value){
+            self->bucket_buffer[i].count++;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int hashtable_increment(struct hashtable *self, int value){
+    spin_lock(&self->lock);
+
+    unsigned int h=hasher(value);
+    struct bucket *b=self->buffer;
+    unsigned int s=self->size;
+    int bucket_index=h%s;
+    int r = bucket_incr( &b[bucket_index] ,value);
+
+    unlock(&self->lock);
+
     return r;
 }
 
@@ -239,14 +265,14 @@ void hashtable_print( struct  hashtable *self){
 
 void hashtable_elements_print(struct  hashtable *self){
     spin_lock(&(self->lock));
-    printf("Count\tValue\n");
+    printf("Value\tCount\n");
     int i,j,k;
     struct input * temp;
     for(i=0;i<self->size;i++){
         k=self->buffer[i].num_inputs;
         temp=self->buffer[i].bucket_buffer;
         for(j=0;j<k;j++){
-            printf("  %d\t%x\n",temp[j].count,temp[j].value );
+            printf("  %d\t%x\n",temp[j].value,temp[j].count );
         }
     }
     unlock(&(self->lock));

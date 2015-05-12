@@ -6,80 +6,22 @@
 
 volatile struct dev_net *net_dev;
 
-volatile struct list_header *garbage_list;//list of packets spaces that can be filled with new packet
-volatile struct list_header *ring_buffer_list;//list of packets spaces in the ring buffer 
+volatile struct list_header *garbage_list;//list of packets spaces that can be filled with new packet 
 volatile struct list_header *hashing_buffer_list;//list of packets waiting to be hashed
 volatile struct list_header *check_packet_buffer_list; //list of packets waiting to be checked for spam/vulnerable/evil/command
 
-//struct dma_ring_slot* ring_buffer;//pointer to the base of the ring buffer
 struct dma_ring_slot* ring_buffer_pipeline;//pointer to the base of the ring buffer
 
-volatile unsigned int rx_buff;
-
-volatile int total_vul=0;
-volatile int total_evil=0;
-volatile int total_spam=0;
-
-volatile int total_packets=0;
-volatile int time_start=0;
-volatile int last_print=0;
-volatile int bytes_handled=0;
-volatile int * rx_buff_lock;
-
+struct global_stats* stats;
 
 struct hashtable evil_hashtable;
 struct hashtable vulnerable_hashtable;
 struct hashtable spam_hashtable;
 
-
-
-
-
-/* Initializes the network driver, allocating the space for the ring buffer and dma slots
-    also creates eviil, vulnerable, and spam hashtables*/
-/*void network_init(){
-	int i,j;
-	for(i=0; i<16; i++){
-    	if(bootparams->devtable[i].type == DEV_TYPE_NETWORK){
-			net_dev = physical_to_virtual(bootparams->devtable[i].start);//find the pointer to the network device 
-			net_dev->cmd=NET_SET_POWER;//turn on device
-			net_dev->data=1;
-			printf("Network Device is on..\n");
-
-			ring_buffer = (struct dma_ring_slot*) malloc(sizeof(struct dma_ring_slot) * RING_SIZE);//malloc ring buffer
-            int  temp=(int)ring_buffer;
-            net_dev->rx_base=virtual_to_physical((void *)temp);
-			net_dev->rx_tail=0;
-			net_dev->rx_capacity=RING_SIZE;
-			net_dev->rx_head=0;
-
-			for (j=0; j< RING_SIZE; j++) { //malloc ring buffer slots
-    			unsigned int* space = malloc(DMA_SIZE);
-    			ring_buffer[j].dma_base = virtual_to_physical(space);
-    			ring_buffer[j].dma_len = NET_MAXPKT;
-			}
-
-    	}
-	}
-    hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
-    hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
-    hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
-}*/
-
 void header_space_malloc(){
     garbage_list=malloc(sizeof(struct list_header));
     garbage_list->length=0;
     garbage_list->lock=0;
-    //garbage_list->lock=(int *)malloc(sizeof(int *));
-    //garbage_list->lock[0]=0;
-    //garbage_list->pa
-    //printf("header_space_malloc:\n");
-     // printf("garbage_list %p\n",garbage_list);
-     // printf("garbage_list length start %p\n",&garbage_list->length);
-    //  printf("lock %p\n",&garbage_list->lock);
-    ring_buffer_list=malloc(sizeof(struct list_header));
-    ring_buffer_list->lock=0;
-    ring_buffer_list->length=0;
 
     hashing_buffer_list=malloc(sizeof(struct list_header));
     hashing_buffer_list->lock=0;
@@ -88,6 +30,9 @@ void header_space_malloc(){
     check_packet_buffer_list=malloc(sizeof(struct list_header));
     check_packet_buffer_list->lock=0;
     check_packet_buffer_list->length=0;
+
+    //all stats should start off 0
+    stats = (struct global_stats*) calloc(sizeof(struct global_stats), 1);
 }
 
 /* Allocates pages for linked list of num_packets packets assumes at least
@@ -120,38 +65,7 @@ void garbage_list_alloc(int num_packets){
     allocate.
 */ 
 int initial_dma_ring_slot_init(){
-   // printf("b %p\n",garbage_list->lock);
-   // printf("b %d\n",*garbage_list->lock);
-   // printf("b %p\n",&garbage_list->lock);
-   // printf("initial_dma_ring_slot_init:\n");
-    //int gl = (int) &garbage_list->lock;
-    /*
-    spin_lock(&garbage_list->lock);
-    int i=0;
-    while( i < RING_SIZE && garbage_list->length>0){
-        spin_lock(&garbage_list->head->lock);
-        if(garbage_list->head->status==IN_GARBAGE_LIST){
-            ring_buffer_pipeline[i].dma_len=NET_MAXPKT;
-            garbage_list->head->status=IN_RING_BUFFER;
-            //printf("i %d glis %p\n",i,garbage_list->head );
-            ring_buffer_pipeline[i].dma_base=virtual_to_physical(&garbage_list->head->packet_start);
-            int *temp = &garbage_list->head->lock;
-            garbage_list->head=garbage_list->head->prev;
-            unlock(temp);
-            garbage_list->length--;
-            i++;    
-        }
-        else{
-            unlock(&garbage_list->head->lock);
-            unlock(&garbage_list->lock);
-            //printf("Packet at %p has incorrect status for adding to ring buffer. ", garbage_list->head);
-            //printf("Only allocated %d/%d ring slots, Sincerely, core %d\n", i,RING_SIZE, current_cpu_id());
-            net_dev->rx_head=i-1;
-            return i;
-        }
-
-    }
-    unlock(&garbage_list->lock);*/
+   
     
     /*
     skeleton for refactored loop?*/
@@ -164,14 +78,6 @@ int initial_dma_ring_slot_init(){
         ring_buffer_pipeline[i].dma_base=virtual_to_physical(&next->packet_start);
         i++;
     }
-
-    //printf("Succesfully allocated %d/%d ring slots, Sincerely, core %d\n", i,RING_SIZE, current_cpu_id());
-   // printf("ring_buffer %p\n",ring_buffer_pipeline );
-    /*for (int j = 0; j < i; j++)
-    {
-        //printf("dma start %p\n",&ring_buffer_pipeline[j] );
-        //printf("ring_buffer[%d]=%p\n",j,physical_to_virtual(ring_buffer_pipeline[j].dma_base));
-    }*/
     return i;    
 }
 
@@ -191,7 +97,6 @@ void network_init_pipeline(){
             net_dev->rx_tail=0;
             
             net_dev->rx_head=0;
-            rx_buff=3;
 
         }
     }
@@ -213,8 +118,8 @@ void network_start_receive(){
     net_dev->cmd=NET_SET_RECEIVE;//enable receive 
     net_dev->data=1;
     printf("Network receive enabled..\n");
-    time_start=current_cpu_cycles();
-    last_print=time_start;
+    stats->time_start=current_cpu_cycles();
+    stats->last_print=stats->time_start;
 }
 
 void network_set_interrupts(int opt){
@@ -250,44 +155,13 @@ unsigned long djb2(unsigned char *pkt, int n){
   return hash;
 }
 
-void check_packet(struct honeypot_command_packet * packet, int n){
-    unsigned int src_addr=packet->headers.ip_source_address_big_endian;
-    unsigned int des_addr=packet->headers.udp_dest_port_big_endian<<16;
-    unsigned int hash2=djb2((void *)packet , n);
-
-    if(src_addr==hashtable_get(&spam_hashtable,src_addr)){
-        total_spam++;
-    }
-    if(des_addr==hashtable_get(&vulnerable_hashtable,des_addr)){
-        total_vul++;
-    }
-    if(hash2==hashtable_get(&evil_hashtable,hash2) ){
-        total_evil++;
-    }
-}
-
 int max(int x, int y, int z){
     if(x>=y && x>=z) return x;
     else if (y>=z ) return y;
     else return z;
 }
 
-void simple_stats_print(){
-    int cycle=current_cpu_cycles();
-    int secs1=(cycle-time_start)/CPU_CYCLES_PER_SECOND;
-    //int secs2=(cycle-last_print)/CPU_CYCLES_PER_SECOND;
-    //last_print=cycle;
-    int r1=total_packets/secs1;
-    int r2=bytes_handled/secs1;
-    //int r3=total_packets/(secs2+1);
-    //int r4=bytes_handled/(secs2+1);
-    printf("----------totals---------\n");
-    printf("Totals: %d packets %d bytes\n",total_packets,bytes_handled );
-    printf("Speed: ~%d packets/sec ~%d bytes/sec\n", r1, r2 );
-    //printf("Since Last Print: ~%d packets/sec ~%d bytes/sec\n", r3, r4 );
-    printf("Evil %d Vulnerable %d Spam %d\n", total_evil,total_vul,total_spam);
-    printf("-------------------------\n");
-}
+
 
 void evil_print(){
     printf("------------------\n");
@@ -315,40 +189,10 @@ void all_print(){
     spam_print();
     vulnerable_print();
     evil_print();
-    simple_stats_print();
-}
-
-void execute_command(struct honeypot_command_packet * packet, int n){
-    unsigned short command = packet->cmd_big_endian;
-    unsigned int data =packet->data_big_endian;
-
-    if(command==print_stats){
-        network_trap();
-    }
-    else if(command==add_spammer){
-        hashtable_put(&spam_hashtable,data,spam_bucket_size);
-    }
-    else if(command==add_vulnerable){
-        hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
-    }
-    else if(command==add_evil_m){
-        hashtable_put(&evil_hashtable,change_end(data),evil_bucket_size);
-    }
-    else if(command==del_spammer){
-        hashtable_remove(&spam_hashtable,data);
-    }
-    else if(command==del_vulnerable){
-        hashtable_remove(&vulnerable_hashtable,data);
-    }
-    else if(command==del_evil){
-        hashtable_remove(&evil_hashtable,change_end(data));
-    }
-
-    check_packet(packet,n);
+    simple_stats_print(stats);
 }
 
 // Continually polls for data on the ring buffer until the
-
 void network_poll(){
     //printf("polling..\n" );
     struct dma_ring_slot* curr;
@@ -365,6 +209,10 @@ void network_poll(){
 void network_trap(){
 
     all_print();
+}
+
+void network_stats_print(){
+    simple_stats_print(stats);
 }
 
 void execute_command_pipeline(struct honeypot_command_packet * packet){
@@ -399,30 +247,21 @@ void execute_command_pipeline(struct honeypot_command_packet * packet){
 /* Checks if the packet is evil, vulnerable, or spam
     Returns the correct code defined above and puts the packet info into
     the correct hashtable if necessary.*/
-int check_packet_pipeline(struct honeypot_command_packet * packet, int hash){
-    unsigned int src_addr=packet->headers.ip_source_address_big_endian;
-    unsigned int des_addr=packet->headers.udp_dest_port_big_endian<<16;
+int check_packet_pipeline(struct honeypot_command_packet* packet, int hash){
+    unsigned int src_addr = packet->headers.ip_source_address_big_endian;
+    unsigned int des_addr = packet->headers.udp_dest_port_big_endian<<16;
     int code=0;
-    if(src_addr==hashtable_get(&spam_hashtable,src_addr)){
-        total_spam++;
-        code+=is_spammer;
+    if(hashtable_increment(&spam_hashtable,src_addr)){
+        code = code | is_spammer;
     }
-    if(des_addr==hashtable_get(&vulnerable_hashtable,des_addr)){
-        total_vul++;
-        code+=is_vulnerable;
+    if(hashtable_increment(&vulnerable_hashtable,des_addr)){
+        code = code | is_vulnerable;
     }
-    if(hash==hashtable_get(&evil_hashtable,hash) ){
-        total_evil++;
-        code+=is_evil;
+    if(hashtable_increment(&evil_hashtable,hash)){
+        code = code | is_evil;
 
     }
     return code;
-}
-
-/*Updates all statistics according to that packet*/
-void update_stats(struct packet_info *current_packet){
-    total_packets++;
-    bytes_handled+=current_packet->packet_length;
 }
 
 void core_start(int core_id){
@@ -430,29 +269,13 @@ void core_start(int core_id){
     if(core_id==0){
         while(1);
     }
-    /*else if(core_id==1){
-
-        while(1){
-            //printf("executing glts core:%d\n",current_cpu_id() );
-            execute_garbage_list_transfer_stage(net_dev, garbage_list, ring_buffer_pipeline, rx_buff);
-        }
-    }
-    else if(core_id==2){
-        //busy_wait(0.1);
-        //add_first_packet_hashbuffer_list(ring_buffer_pipeline, hashing_buffer_list, rx_buff,net_dev->rx_head);
-        while(1){
-            //aquire lock for rx_buff 
-            rx_buff=execute_remove_from_ring_buffer(ring_buffer_pipeline, hashing_buffer_list, rx_buff,net_dev->rx_head);
-//printf("rbl %d %d %d |%d <%d <%d \n",hashing_buffer_list->length,check_packet_buffer_list->length,garbage_list->length,net_dev->rx_head,net_dev->rx_tail,rx_buff );
-        }
-    }*/
     else if (core_id == 1){
         network_poll();
     }
     else if (core_id == 2){
         while(1){
             //busy_wait(0.4);
-            execute_checking_stage(check_packet_buffer_list, garbage_list);
+            execute_checking_stage(check_packet_buffer_list, garbage_list, stats);
         }
     } 
     else{

@@ -11,14 +11,16 @@ void execute_hashing_stage(volatile struct list_header* hashing_buffer_list, vol
   append_list(checking_buffer_list, current_packet);
 }
 
-void execute_checking_stage(volatile struct list_header* checking_buffer_list,volatile  struct list_header* garbage_list){
+void execute_checking_stage(volatile struct list_header* checking_buffer_list,volatile  struct list_header* garbage_list, volatile struct global_stats* stats){
   struct packet_info* current_packet = poll(checking_buffer_list);
   current_packet->status=BEING_CHECKED;
 
   //checks if it is a command packet and executes this command
   execute_command_pipeline(&current_packet->packet_start);
-  //checks if packet is evil/vulnerable/spam  
-  check_packet_pipeline(&current_packet->packet_start, current_packet->hash);
+  //checks if packet is evil/vulnerable/spam and increments hashtable
+  int code = check_packet_pipeline(&current_packet->packet_start, current_packet->hash);
+  //updates stats
+  update_stats(stats, current_packet, code);
 
   current_packet->status = IN_GARBAGE_LIST;
   append_list(garbage_list, current_packet);
@@ -46,7 +48,7 @@ void execute_ringbuffer_stage(volatile struct list_header* garbage_list, volatil
 // executes transfer from garbage list to ring buffer list stage
  //   Assumes that only one core performs this job and is therefore 
  //   partially unsycronized.
-void execute_garbage_list_transfer_stage(volatile struct dev_net * net_dev,volatile  struct list_header * garbage_list,volatile  struct dma_ring_slot * ring_buffer, unsigned int rx_buff){ 
+/*void execute_garbage_list_transfer_stage(volatile struct dev_net * net_dev,volatile  struct list_header * garbage_list,volatile  struct dma_ring_slot * ring_buffer, unsigned int rx_buff){ 
 //printf("execute_garbage_list_transfer_stage 0\n");
   struct packet_info * current_packet;
   if(net_dev->rx_tail < rx_buff){//if there is space in the ring buffer 
@@ -93,14 +95,14 @@ void execute_garbage_list_transfer_stage(volatile struct dev_net * net_dev,volat
     //printf("Waiting for stuff to be removed from the buffer.....Sincerely, core %d\n",current_cpu_id());
   }
 }
-
+*/
 
 
 //removes a packet from the ring buffer into hashing_buffer_list
 //assumes that there is a packet to remove
 //returns new rx_buff if succesful and old one if unsucessful
 //
-int execute_remove_from_ring_buffer(volatile struct dma_ring_slot* ring_buffer,volatile struct list_header * hashing_buffer_list, int rx_buff,int rx_head){
+/*int execute_remove_from_ring_buffer(volatile struct dma_ring_slot* ring_buffer,volatile struct list_header * hashing_buffer_list, int rx_buff,int rx_head){
 //printf("buff%d head %d \n",rx_buff,rx_head );
 
 if(rx_buff%RING_SIZE!=rx_head%RING_SIZE+1){
@@ -149,5 +151,5 @@ if(rx_buff%RING_SIZE!=rx_head%RING_SIZE+1){
 else{
   return rx_buff;
 }
-}
+}*/
 

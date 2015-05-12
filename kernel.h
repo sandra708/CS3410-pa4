@@ -8,6 +8,7 @@
 #include "network.h"
 #include "hashtable.h"
 #include "list.h"
+#include "stats.h"
 #include "pipeline.h"
 #include "lock.h"
 /* This is used by the trap handler to save the CPU state

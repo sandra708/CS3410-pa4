@@ -27,14 +27,14 @@
 #define vulnerable_bucket_size 3
 
 /*codes to define the packet type in check_packet_pipeline();
-neutral=0   spam=1  evil=3 vulnerable=5
-spam&evil=4 spam&vulnerable=6 evil&vulnerable=8
-spam&evil&vulnerable=9
+neutral=0   spam=1  evil=2 vulnerable=4
+spam&evil=3 spam&vulnerable=5 evil&vulnerable=6
+spam&evil&vulnerable=7
 */
 #define is_neutral 0
 #define is_spammer 1
-#define is_evil 3
-#define is_vulnerable 5
+#define is_evil 2
+#define is_vulnerable 4
 
 // Initializes the network driver, allocating the space for the ring buffer.
 void network_init();
@@ -63,6 +63,8 @@ void all_print();
 // Called when a network interrupt occurs.
 void network_trap();
 
+void network_stats_print();
+
 /* Enable network receiving. Also records the initial 
     cycle for speed statistics calculations*/
 void network_start_receive();
@@ -85,9 +87,6 @@ void execute_command_pipeline(struct honeypot_command_packet * packet);
     Returns the correct code defined above and puts the packet info into
     the correct hashtable if necessary.*/
 int check_packet_pipeline(struct honeypot_command_packet * packet, int hash);
-
-/*Updates all statistics according to that packet*/
-void update_stats(struct packet_info *current_packet);
 
 //assigns each core to its pipeline stage
 void core_start(int core_id);

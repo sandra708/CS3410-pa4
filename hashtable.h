@@ -35,7 +35,8 @@ struct hashtable
 /* initializes the hashtable*/
 void hashtable_create( struct hashtable *self, int hashtable_size, int my_bucket_size);
 
-
+//returns 1 if value is in the table; 0 otherwise
+int hashtable_increment(struct hashtable *self, int value);
 
 int hashtable_get( struct hashtable *self, int value);
 
