@@ -20,9 +20,9 @@ void simple_stats_print(volatile struct global_stats* stats){
 	spin_lock(&stats->lock);
 
     int cycle = current_cpu_cycles();
-    printf("Cycles: %d.\n", cycle - stats->time_start);
+    //printf("Cycles: %d.\n", cycle - stats->time_start);
     int secs1 = ((int) (cycle - stats->time_start))/((int) CPU_CYCLES_PER_SECOND);
-    printf("Seconds: %d.\n", secs1);
+    //printf("Seconds: %d.\n", secs1);
     //int secs2=(cycle-last_print)/CPU_CYCLES_PER_SECOND;
     //last_print=cycle;
     if(secs1==0)secs1=1;

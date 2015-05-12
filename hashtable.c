@@ -154,6 +154,7 @@ int bucket_incr(struct bucket *self, int value){
     int i;
     for(i = 0; i < self->num_inputs; i++){
         if(self->bucket_buffer[i].value == value){
+            //printf("Incrementing %d.\n", value);
             self->bucket_buffer[i].count++;
             return 1;
         }
@@ -164,7 +165,6 @@ int bucket_incr(struct bucket *self, int value){
 int hashtable_increment(volatile struct hashtable *self, int value){
     spin_lock(&self->lock);
 
-    //printf("Incrementing.\n");
     unsigned int h=hasher(value);
     struct bucket *b=self->buffer;
     unsigned int s=self->size;
@@ -191,6 +191,8 @@ void hashtable_put(volatile struct hashtable *self, int value, int initial_bucke
         //printf("Already in bucket: %d\n",value);
         return;
     }*/
+
+    //printf("Adding %p\n", (void*)value);
 
     struct input* x = malloc(sizeof(struct input));
     
@@ -258,7 +260,7 @@ void hashtable_print(volatile struct  hashtable *self){
     int len=self->size;
     for(j=0;j<len;j++){
         if(self->buffer[j].num_inputs>0){
-            printf("[Bucket %d]: ",j);
+            //printf("[Bucket %d]: ",j);
 	       bucket_print(&self->buffer[j]);
        }
     }
@@ -305,6 +307,7 @@ int bucket_remove(struct bucket *self, int my_key){
 int hashtable_remove(volatile struct hashtable *self, int key){
     spin_lock(&(self->lock));
     //printf("Removing element from hashtable.\n");
+    //printf("Removing %p\n", (void*)key);
     unsigned int h=hasher(key);
     struct bucket *buf=self->buffer;
     unsigned int s=self->size;
