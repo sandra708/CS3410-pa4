@@ -109,7 +109,6 @@ void network_init_pipeline(){
     int spots= initial_dma_ring_slot_init();//
     printf("Succesfully added %d spots to the ring_buffer\n", spots);
     net_dev->rx_capacity=spots;
-
     hashtable_create(&evil_hashtable,evil_hashtable_size,evil_bucket_size);
     hashtable_create(&vulnerable_hashtable,vulnerable_hashtable_size,vulnerable_bucket_size);
     hashtable_create(&spam_hashtable,spam_hashtable_size,spam_bucket_size);
@@ -248,12 +247,8 @@ void network_stats_print(){
 }
 
 void execute_command_pipeline(struct honeypot_command_packet *packet){
-    if(packet->secret_big_endian != secret_little_endian){
-        return;
-    }
     unsigned short command = packet->cmd_big_endian;
     unsigned int data =packet->data_big_endian;
-    data = change_end(data);
 
     if(command==print_stats){
         //network_trap();
@@ -265,17 +260,23 @@ void execute_command_pipeline(struct honeypot_command_packet *packet){
     else if(command==add_vulnerable){
         hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
     }
+    else if(command==add_vulnerable){
+        hashtable_put(&vulnerable_hashtable,data,vulnerable_bucket_size);
+    }
     else if(command==add_evil_m){
-        hashtable_put(&evil_hashtable,data,evil_bucket_size);
+        hashtable_put(&evil_hashtable,change_end(data),evil_bucket_size);
     }
     else if(command==del_spammer){
-       hashtable_remove(&spam_hashtable,data);
+        hashtable_remove(&spam_hashtable,data);
+    }
+    else if(command==del_vulnerable){
+        hashtable_remove(&vulnerable_hashtable,data);
     }
     else if(command==del_vulnerable){
        hashtable_remove(&vulnerable_hashtable,data);
     }
     else if(command==del_evil){
-      hashtable_remove(&evil_hashtable,data);
+        hashtable_remove(&evil_hashtable,change_end(data));
     }
   
 }
@@ -306,9 +307,8 @@ void core_start(int core_id){
         busy_wait(1);
         network_poll();
     }
-    else if (core_id == 2){
+    else if (core_id ==2){
             busy_wait(1);
-
         while(1){
 
             execute_checking_stage(check_packet_buffer_list, garbage_list, stats);
